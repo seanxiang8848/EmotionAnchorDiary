@@ -35,8 +35,15 @@ jobs:
 
       - name: 运行单元测试（加密模块）
         run: |
+          SIMULATOR_ID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next((device["udid"] for devices in data["devices"].values() for device in devices if device.get("isAvailable") and device["name"].startswith("iPhone")), ""))')"
+          if [ -z "$SIMULATOR_ID" ]; then
+            echo "没有找到可用的 iPhone 模拟器"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "使用模拟器 ID: $SIMULATOR_ID"
           xcodebuild test \
             -project EmotionAnchorDiary.xcodeproj \
             -scheme EmotionAnchorDiary \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             CODE_SIGNING_ALLOWED=NO
