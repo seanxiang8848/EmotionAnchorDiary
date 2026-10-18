@@ -30,7 +30,7 @@ jobs:
           xcodebuild build \
             -project EmotionAnchorDiary.xcodeproj \
             -scheme EmotionAnchorDiary \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
 
       - name: 运行单元测试（加密模块）
@@ -38,5 +38,5 @@ jobs:
           xcodebuild test \
             -project EmotionAnchorDiary.xcodeproj \
             -scheme EmotionAnchorDiary \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
