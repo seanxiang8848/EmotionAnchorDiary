@@ -40,7 +40,7 @@ struct GoalDashboardView: View {
                                 .foregroundColor(.secondary)
                         }
                         ProgressView(value: min(1, Double(goal.hits) / Double(max(1, Int(goal.targetFrequency)))))
-                        Text("关键词：\((goal.keywords ?? []).joined(separator: "、"))")
+                        Text("关键词：\(goal.keywordList.joined(separator: "、"))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -103,7 +103,7 @@ private struct GoalEditorView: View {
     init(goal: Goal?) {
         self.goal = goal
         _title = State(initialValue: goal?.title ?? "")
-        _keywordsText = State(initialValue: (goal?.keywords ?? []).joined(separator: ", "))
+        _keywordsText = State(initialValue: (goal?.keywordList ?? []).joined(separator: ", "))
         _targetFrequency = State(initialValue: max(1, Int(goal?.targetFrequency ?? 1)))
     }
 

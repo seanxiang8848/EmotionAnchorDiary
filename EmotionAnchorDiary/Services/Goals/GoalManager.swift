@@ -18,7 +18,7 @@ final class GoalManager {
         let goal = Goal(context: context)
         goal.id = UUID()
         goal.title = cleanTitle
-        goal.keywords = normalizedKeywords(keywords)
+        goal.keywordList = normalizedKeywords(keywords)
         goal.targetFrequency = targetFrequency
         goal.lastUpdatedAt = Date()
 
@@ -32,7 +32,7 @@ final class GoalManager {
             throw NSError(domain: "GoalManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "目标名称和周期次数必须有效"])
         }
         goal.title = cleanTitle
-        goal.keywords = normalizedKeywords(keywords)
+        goal.keywordList = normalizedKeywords(keywords)
         goal.targetFrequency = targetFrequency
         goal.lastUpdatedAt = Date()
         try context.save()
@@ -60,7 +60,7 @@ final class GoalManager {
         let lowercasedText = plainText.lowercased()
         var matched: [Goal] = []
         for goal in goals {
-            guard let keywords = goal.keywords else { continue }
+            let keywords = goal.keywordList
             if keywords.contains(where: { lowercasedText.contains($0.lowercased()) }) {
                 entry.addToGoals(goal)
                 goal.lastUpdatedAt = Date()
