@@ -47,13 +47,13 @@ final class DiaryEntryViewModel: ObservableObject {
         persistence: PersistenceController = .shared,
         goalManager: GoalManager? = nil,
         emotionService: EmotionCoachService? = nil,
-        speechService: SpeechService = SpeechService()
+        speechService: SpeechService? = nil
     ) {
         self.context = context
         self.persistence = persistence
         self.goalManager = goalManager ?? GoalManager(context: context)
         self.emotionService = emotionService
-        self.speechService = speechService
+        self.speechService = speechService ?? SpeechService()
         bindSpeechTranscript()
         waveformSamples = Array(repeating: 0.3, count: 12)
     }
