@@ -1,0 +1,42 @@
+# iOS 云端编译验证
+# 每次上传代码后，GitHub 会自动分配一台云端 Mac 编译项目并运行单元测试。
+# 结果在仓库的 Actions 标签页查看：绿勾 = 编译通过；红叉 = 有错误（点进去可看详情）。
+
+name: iOS Build Check
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:   # 允许在 Actions 页面手动点 "Run workflow" 触发
+
+jobs:
+  build-and-test:
+    runs-on: macos-15   # GitHub 托管的云端 Mac
+
+    steps:
+      - name: 拉取项目代码
+        uses: actions/checkout@v4
+
+      - name: 选择 Xcode 版本
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
+      - name: 显示编译环境
+        run: xcodebuild -version
+
+      - name: 编译 App（跳过签名，验证代码能否通过编译）
+        run: |
+          xcodebuild build \
+            -project EmotionAnchorDiary.xcodeproj \
+            -scheme EmotionAnchorDiary \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: 运行单元测试（加密模块）
+        run: |
+          xcodebuild test \
+            -project EmotionAnchorDiary.xcodeproj \
+            -scheme EmotionAnchorDiary \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO

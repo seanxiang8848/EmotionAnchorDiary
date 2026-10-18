@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE model PUBLIC "-//Apple//DTD CORE DATA MODEL//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22522" systemVersion="22D68" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="NO" userDefinedModelVersionIdentifier="">
+    <entity name="Entry" representedClassName="Entry" syncable="YES" codeGenerationType="manual">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="moodTag" optional="YES" attributeType="String"/>
+        <attribute name="aiSummary" optional="YES" attributeType="String"/>
+        <attribute name="encryptedBody" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
+        <relationship name="goals" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Goal" inverseName="entries" inverseEntity="Goal"/>
+    </entity>
+    <entity name="Goal" representedClassName="Goal" syncable="YES" codeGenerationType="manual">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="keywords" optional="YES" attributeType="Transformable" attributeValueClassName="NSArray"/>
+        <attribute name="targetFrequency" optional="YES" attributeType="Integer 16" defaultValueString="0"/>
+        <attribute name="hits" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="lastUpdatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="entries" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Entry" inverseName="goals" inverseEntity="Entry"/>
+    </entity>
+    <elements>
+        <element name="Entry" positionX="160" positionY="160" width="128" height="150"/>
+        <element name="Goal" positionX="412" positionY="160" width="128" height="150"/>
+    </elements>
+</model>
