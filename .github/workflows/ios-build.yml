@@ -1,5 +1,5 @@
 # iOS 云端编译验证
-# 每次上传代码后，GitHub 会自动分配一台云端 Mac 编译项目并运行单元测试。
+# 每次上传代码后，GitHub 会自动分配一台云端 Mac 编译项目并运行单元与界面测试。
 # 结果在仓库的 Actions 标签页查看：绿勾 = 编译通过；红叉 = 有错误（点进去可看详情）。
 
 name: iOS Build Check
@@ -33,7 +33,7 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: 运行单元测试（加密模块）
+      - name: 运行单元与界面测试（加密和隐私设置）
         run: |
           SIMULATOR_ID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next((device["udid"] for devices in data["devices"].values() for device in devices if device.get("isAvailable") and device["name"].startswith("iPhone")), ""))')"
           if [ -z "$SIMULATOR_ID" ]; then

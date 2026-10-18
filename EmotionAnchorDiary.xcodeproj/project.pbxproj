@@ -23,10 +23,18 @@
 		9A000000000000000000004D /* CryptoManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0000000000000000000030 /* CryptoManagerTests.swift */; };
 		9A00000000000000000000A0 /* GoalDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000A1 /* GoalDashboardView.swift */; };
 		9A00000000000000000000A2 /* MoodTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000A3 /* MoodTrendView.swift */; };
+		9A00000000000000000000B0 /* DiaryFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000B3 /* DiaryFlowUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		9A0000000000000000000060 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9A0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9A0000000000000000000002;
+			remoteInfo = EmotionAnchorDiary;
+		};
+		9A00000000000000000000B1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 9A0000000000000000000001 /* Project object */;
 			proxyType = 1;
@@ -56,6 +64,8 @@
 		9A0000000000000000000030 /* CryptoManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManagerTests.swift; sourceTree = "<group>"; };
 		9A00000000000000000000A1 /* GoalDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalDashboardView.swift; sourceTree = "<group>"; };
 		9A00000000000000000000A3 /* MoodTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodTrendView.swift; sourceTree = "<group>"; };
+		9A00000000000000000000B2 /* EmotionAnchorDiaryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EmotionAnchorDiaryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A00000000000000000000B3 /* DiaryFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryFlowUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +83,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9A00000000000000000000B6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -81,6 +98,7 @@
 			children = (
 				9A0000000000000000000010 /* EmotionAnchorDiary */,
 				9A0000000000000000000011 /* EmotionAnchorDiaryTests */,
+				9A00000000000000000000B4 /* EmotionAnchorDiaryUITests */,
 				9A0000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +108,7 @@
 			children = (
 				9A0000000000000000000006 /* EmotionAnchorDiary.app */,
 				9A0000000000000000000007 /* EmotionAnchorDiaryTests.xctest */,
+				9A00000000000000000000B2 /* EmotionAnchorDiaryUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -116,6 +135,14 @@
 				9A0000000000000000000030 /* CryptoManagerTests.swift */,
 			);
 			path = EmotionAnchorDiaryTests;
+			sourceTree = "<group>";
+		};
+		9A00000000000000000000B4 /* EmotionAnchorDiaryUITests */ = {
+			isa = PBXGroup;
+			children = (
+				9A00000000000000000000B3 /* DiaryFlowUITests.swift */,
+			);
+			path = EmotionAnchorDiaryUITests;
 			sourceTree = "<group>";
 		};
 		9A0000000000000000000012 /* Models */ = {
@@ -244,6 +271,24 @@
 			productReference = 9A0000000000000000000007 /* EmotionAnchorDiaryTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		9A00000000000000000000B9 /* EmotionAnchorDiaryUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9A00000000000000000000C2 /* Build configuration list for PBXNativeTarget "EmotionAnchorDiaryUITests" */;
+			buildPhases = (
+				9A00000000000000000000B5 /* Sources */,
+				9A00000000000000000000B6 /* Frameworks */,
+				9A00000000000000000000B7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9A00000000000000000000B8 /* PBXTargetDependency */,
+			);
+			name = EmotionAnchorDiaryUITests;
+			productName = EmotionAnchorDiaryUITests;
+			productReference = 9A00000000000000000000B2 /* EmotionAnchorDiaryUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -258,6 +303,10 @@
 						CreatedOnToolsVersion = 15.4;
 					};
 					9A0000000000000000000003 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = 9A0000000000000000000002;
+					};
+					9A00000000000000000000B9 = {
 						CreatedOnToolsVersion = 15.4;
 						TestTargetID = 9A0000000000000000000002;
 					};
@@ -279,6 +328,7 @@
 			targets = (
 				9A0000000000000000000002 /* EmotionAnchorDiary */,
 				9A0000000000000000000003 /* EmotionAnchorDiaryTests */,
+				9A00000000000000000000B9 /* EmotionAnchorDiaryUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -292,6 +342,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9A0000000000000000000055 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9A00000000000000000000B7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -331,6 +388,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9A00000000000000000000B5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A00000000000000000000B0 /* DiaryFlowUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -338,6 +403,11 @@
 			isa = PBXTargetDependency;
 			target = 9A0000000000000000000002 /* EmotionAnchorDiary */;
 			targetProxy = 9A0000000000000000000060 /* PBXContainerItemProxy */;
+		};
+		9A00000000000000000000B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9A0000000000000000000002 /* EmotionAnchorDiary */;
+			targetProxy = 9A00000000000000000000B1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -553,6 +623,38 @@
 			};
 			name = Release;
 		};
+		9A00000000000000000000C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.emotionanchor.diary.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = EmotionAnchorDiary;
+			};
+			name = Debug;
+		};
+		9A00000000000000000000C1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.emotionanchor.diary.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = EmotionAnchorDiary;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -579,6 +681,15 @@
 			buildConfigurations = (
 				9A0000000000000000000074 /* Debug */,
 				9A0000000000000000000075 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9A00000000000000000000C2 /* Build configuration list for PBXNativeTarget "EmotionAnchorDiaryUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A00000000000000000000C0 /* Debug */,
+				9A00000000000000000000C1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
