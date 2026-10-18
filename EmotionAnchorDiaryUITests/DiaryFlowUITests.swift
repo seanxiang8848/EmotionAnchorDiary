@@ -35,6 +35,23 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].exists)
     }
 
+    func testDiaryEntryCanBeSavedAndReadBackFromHistory() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app)
+
+        let note = "A private note saved by the UI test."
+        let editor = app.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText(note)
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+
+        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
+        app.buttons["查看历史条目"].tap()
+        XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
+    }
+
     func testDeleteAllDataRequiresConfirmation() throws {
         let app = XCUIApplication()
         launchDiary(in: app)
@@ -49,7 +66,7 @@ final class DiaryFlowUITests: XCTestCase {
     }
 
     private func launchDiary(in app: XCUIApplication) {
-        app.launchArguments += ["-allowCloudAnalysis", "NO"]
+        app.launchArguments += ["-ui-testing", "-allowCloudAnalysis", "NO"]
         app.launch()
     }
 

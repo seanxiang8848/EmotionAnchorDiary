@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct DiaryEntryView: View {
     @ObservedObject var viewModel: DiaryEntryViewModel
     @State private var showSavedEntries: Bool = false
+    @FocusState private var isJournalFocused: Bool
     @AppStorage("allowCloudAnalysis") private var allowCloudAnalysis = false
 
     var body: some View {
@@ -42,6 +43,7 @@ struct DiaryEntryView: View {
                 TextEditor(text: $viewModel.journalText)
                     .frame(height: 200)
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2)))
+                    .focused($isJournalFocused)
 
                 Picker("此刻的心情", selection: $viewModel.selectedMoodTag) {
                     ForEach(MoodOption.all) { mood in
@@ -148,6 +150,10 @@ struct DiaryEntryView: View {
             }
             .navigationTitle("情绪锚点")
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { isJournalFocused = false }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: AppSettingsView(viewModel: viewModel)) {
                         Image(systemName: "gearshape")

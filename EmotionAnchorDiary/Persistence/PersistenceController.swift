@@ -1,8 +1,11 @@
 import CoreData
+import Foundation
 
 /// Coordinates the Core Data stack and injects the encryption layer before touching disk.
 struct PersistenceController {
-    static let shared = PersistenceController()
+    static let shared = PersistenceController(
+        inMemory: ProcessInfo.processInfo.arguments.contains("-ui-testing")
+    )
 
     let container: NSPersistentContainer
 
