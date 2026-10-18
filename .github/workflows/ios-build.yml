@@ -42,8 +42,20 @@ jobs:
             exit 1
           fi
           echo "使用模拟器 ID: $SIMULATOR_ID"
+          RESULT_BUNDLE="$RUNNER_TEMP/EmotionAnchorDiaryTests.xcresult"
+          set +e
           xcodebuild test \
             -project EmotionAnchorDiary.xcodeproj \
             -scheme EmotionAnchorDiary \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -resultBundlePath "$RESULT_BUNDLE" \
             CODE_SIGNING_ALLOWED=NO
+          TEST_STATUS=$?
+          set -e
+          if [ -d "$RESULT_BUNDLE" ]; then
+            echo "Xcode 测试摘要："
+            xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE"
+            echo "Xcode 测试详情："
+            xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE"
+          fi
+          exit "$TEST_STATUS"

@@ -8,11 +8,23 @@ final class CryptoManager {
 
     private let keychainKey = "com.emotionanchor.cryptoKey"
     private let keyLength = 32
+    private let testKey: SymmetricKey?
+
+    /// Allows unit tests to verify AES-GCM without depending on simulator Keychain entitlements.
+    init(testKey: SymmetricKey? = nil) {
+        self.testKey = testKey
+    }
 
     /// Encrypts plain text using AES.GCM
     func encrypt(_ plainText: String) throws -> Data {
         let data = Data(plainText.utf8)
-        let sealed = try AES.GCM.seal(data, using: loadOrCreateSymmetricKey())
+        let key: SymmetricKey
+        if let testKey {
+            key = testKey
+        } else {
+            key = try loadOrCreateSymmetricKey()
+        }
+        let sealed = try AES.GCM.seal(data, using: key)
         return sealed.combined ?? Data()
     }
 
@@ -20,7 +32,12 @@ final class CryptoManager {
     func decrypt(_ cipherData: Data) throws -> String {
         let sealedBox = try AES.GCM.SealedBox(combined: cipherData)
         // A missing key must fail closed; creating a replacement would hide data loss.
-        let key = SymmetricKey(data: try loadKeyData())
+        let key: SymmetricKey
+        if let testKey {
+            key = testKey
+        } else {
+            key = SymmetricKey(data: try loadKeyData())
+        }
         let decrypted = try AES.GCM.open(sealedBox, using: key)
         return String(decoding: decrypted, as: UTF8.self)
     }
