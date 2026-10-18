@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE model PUBLIC "-//Apple//DTD CORE DATA MODEL//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22522" systemVersion="22D68" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="NO" userDefinedModelVersionIdentifier="">
-    <entity name="Entry" representedClassName="Entry" syncable="YES" codeGenerationType="manual">
+    <entity name="Entry" representedClassName="Entry" syncable="YES" codeGenerationType="manual/none">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="moodTag" optional="YES" attributeType="String"/>
@@ -9,7 +9,7 @@
         <attribute name="encryptedBody" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
         <relationship name="goals" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Goal" inverseName="entries" inverseEntity="Goal"/>
     </entity>
-    <entity name="Goal" representedClassName="Goal" syncable="YES" codeGenerationType="manual">
+    <entity name="Goal" representedClassName="Goal" syncable="YES" codeGenerationType="manual/none">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="keywords" optional="YES" attributeType="Transformable" attributeValueClassName="NSArray"/>
