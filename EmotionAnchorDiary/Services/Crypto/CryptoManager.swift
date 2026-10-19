@@ -4,7 +4,14 @@ import Security
 
 /// Handles AES.GCM encryption for diary entries and stores keys securely in Keychain.
 final class CryptoManager {
-    static let shared = CryptoManager()
+    static let shared: CryptoManager = {
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing") {
+            // UI tests use an in-memory store and a process-local key so they do not
+            // depend on Keychain entitlements in unsigned simulator builds.
+            return CryptoManager(testKey: SymmetricKey(size: .bits256))
+        }
+        return CryptoManager()
+    }()
 
     private let keychainKey = "com.emotionanchor.cryptoKey"
     private let keyLength = 32
