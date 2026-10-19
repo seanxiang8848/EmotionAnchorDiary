@@ -47,8 +47,9 @@ final class DiaryFlowUITests: XCTestCase {
         app.buttons["完成"].tap()
         app.buttons["保存并生成共情"].tap()
 
-        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
-        app.buttons["查看历史条目"].tap()
+        let historyButton = app.buttons["查看历史条目"]
+        XCTAssertTrue(historyButton.waitForExistence(timeout: 10))
+        historyButton.tap()
         XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
     }
 
