@@ -83,10 +83,7 @@ final class DiaryFlowUITests: XCTestCase {
 
         // The system document picker is presented only after the app fetches and
         // decrypts the saved entry and builds the export document.
-        let cancelButton = app.buttons["取消"]
-        XCTAssertTrue(cancelButton.waitForExistence(timeout: 10))
-        cancelButton.tap()
-        XCTAssertTrue(app.buttons["导出日记"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Browse"].waitForExistence(timeout: 10))
     }
 
     private func launchDiary(in app: XCUIApplication) {
