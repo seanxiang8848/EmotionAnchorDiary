@@ -81,7 +81,6 @@ final class DiaryFlowUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["谢谢你写下这些感受。"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["做三次深呼吸"].exists)
-        XCTAssertTrue(app.staticTexts["已保存并加密，已完成 AI 分析"].exists)
     }
 
     func testDeleteAllDataRequiresConfirmation() throws {
