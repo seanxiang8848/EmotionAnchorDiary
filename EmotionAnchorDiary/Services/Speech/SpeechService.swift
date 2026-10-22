@@ -16,6 +16,21 @@ final class SpeechService: NSObject, ObservableObject {
 
     /// Asks users for microphone + speech permissions up front and caches the result for UI bindings.
     func requestAuthorization() async {
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-speech-denied") {
+            authorizationStatus = .denied
+            return
+        }
+
+        let microphoneGranted = await withCheckedContinuation { continuation in
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+        guard microphoneGranted else {
+            authorizationStatus = .denied
+            return
+        }
+
         authorizationStatus = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
                 continuation.resume(returning: status)

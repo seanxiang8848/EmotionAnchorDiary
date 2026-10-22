@@ -70,13 +70,22 @@ final class DiaryEntryViewModel: ObservableObject {
                 speechService.stopRecording()
             } else {
                 recordingDuration = 0
-                waveformSamples = randomWaveform()
-                scheduleRecordingTimer()
                 await speechService.requestAuthorization()
+                guard speechService.authorizationStatus == .authorized else {
+                    isRecording = false
+                    feedbackBanner = .init(message: "语音未获授权，请允许麦克风和语音识别后重试", isError: true)
+                    autoDismissBanner()
+                    return
+                }
+
                 do {
                     try speechService.startRecording()
+                    waveformSamples = randomWaveform()
+                    scheduleRecordingTimer()
                 } catch {
+                    isRecording = false
                     feedbackBanner = .init(message: "语音启用失败，请检查权限", isError: true)
+                    autoDismissBanner()
                 }
             }
             isRecording = speechService.isRecording

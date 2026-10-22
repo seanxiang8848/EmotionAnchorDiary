@@ -86,8 +86,20 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Browse"].waitForExistence(timeout: 10))
     }
 
-    private func launchDiary(in app: XCUIApplication) {
+    func testVoiceRecordingPermissionDenialShowsErrorWithoutRecording() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, extraArguments: ["-ui-testing-speech-denied"])
+
+        app.buttons["语音记录"].tap()
+
+        XCTAssertTrue(app.staticTexts["语音未获授权，请允许麦克风和语音识别后重试"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["语音记录"].exists)
+        XCTAssertFalse(app.buttons["停止录音"].exists)
+    }
+
+    private func launchDiary(in app: XCUIApplication, extraArguments: [String] = []) {
         app.launchArguments += ["-ui-testing", "-allowCloudAnalysis", "NO"]
+        app.launchArguments += extraArguments
         app.launch()
     }
 
