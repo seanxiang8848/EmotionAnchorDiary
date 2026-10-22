@@ -36,10 +36,18 @@ final class EmotionCoachService {
 
     private let endpointProvider: () -> URL?
     private let apiKeyProvider: () -> String?
+    private let sendRequest: (URLRequest) async throws -> (Data, URLResponse)
 
-    init(endpointProvider: @escaping () -> URL?, apiKeyProvider: @escaping () -> String?) {
+    init(
+        endpointProvider: @escaping () -> URL?,
+        apiKeyProvider: @escaping () -> String?,
+        sendRequest: @escaping (URLRequest) async throws -> (Data, URLResponse) = { request in
+            try await URLSession.shared.data(for: request)
+        }
+    ) {
         self.endpointProvider = endpointProvider
         self.apiKeyProvider = apiKeyProvider
+        self.sendRequest = sendRequest
     }
 
     /// Sends a short summary to the server and returns an EmpathyCard.
@@ -57,7 +65,7 @@ final class EmotionCoachService {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(["summary": summary])
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await sendRequest(request)
         guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
             throw NSError(domain: "EmotionCoach", code: 1, userInfo: [NSLocalizedDescriptionKey: "AI service unavailable"])
         }

@@ -66,6 +66,29 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["导出日记"].exists)
     }
 
+    func testExportSavedDiaryPresentsFilePicker() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app)
+
+        let note = "Export flow note from UI test."
+        let editor = app.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText(note)
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+
+        openSettings(in: app)
+        app.buttons["导出日记"].tap()
+
+        // The system document picker is presented only after the app fetches and
+        // decrypts the saved entry and builds the export document.
+        let cancelButton = app.buttons["取消"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 10))
+        cancelButton.tap()
+        XCTAssertTrue(app.buttons["导出日记"].waitForExistence(timeout: 5))
+    }
+
     private func launchDiary(in app: XCUIApplication) {
         app.launchArguments += ["-ui-testing", "-allowCloudAnalysis", "NO"]
         app.launch()
