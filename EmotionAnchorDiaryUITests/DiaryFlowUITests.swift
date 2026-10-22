@@ -80,7 +80,10 @@ final class DiaryFlowUITests: XCTestCase {
         app.buttons["保存并生成共情"].tap()
 
         XCTAssertTrue(app.staticTexts["谢谢你写下这些感受。"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["做三次深呼吸"].exists)
+        let suggestion = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "做三次深呼吸")
+        ).firstMatch
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
     }
 
     func testDeleteAllDataRequiresConfirmation() throws {
