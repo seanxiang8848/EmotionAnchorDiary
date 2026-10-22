@@ -97,6 +97,31 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertFalse(app.buttons["停止录音"].exists)
     }
 
+    func testAppLockHidesDiaryUntilUnlockedAndRelocksAfterBackgrounding() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, extraArguments: ["-ui-testing-app-lock"])
+
+        let lockTitle = app.staticTexts["情绪锚点日记已锁定"]
+        let unlockButton = app.buttons["使用 Face ID 或设备密码解锁"]
+        XCTAssertTrue(lockTitle.waitForExistence(timeout: 10))
+        XCTAssertTrue(unlockButton.exists)
+        XCTAssertFalse(app.staticTexts["今天的心情在哪儿？"].exists)
+        XCTAssertFalse(app.buttons["保存并生成共情"].exists)
+        XCTAssertFalse(app.textViews.firstMatch.exists)
+
+        unlockButton.tap()
+        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
+
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(lockTitle.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["保存并生成共情"].exists)
+        XCTAssertFalse(app.textViews.firstMatch.exists)
+
+        unlockButton.tap()
+        XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
+    }
+
     private func launchDiary(in app: XCUIApplication, extraArguments: [String] = []) {
         app.launchArguments += ["-ui-testing", "-allowCloudAnalysis", "NO"]
         app.launchArguments += extraArguments

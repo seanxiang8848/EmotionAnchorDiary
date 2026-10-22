@@ -37,13 +37,25 @@ private struct AppLockGate<Content: View>: View {
 
     private let content: Content
 
+    /// UI tests hold the gate closed until the test taps the unlock action.
+    /// The simulated success path is compiled out of Release builds.
+    private var isLockUITest: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-ui-testing-app-lock")
+        #else
+        false
+        #endif
+    }
+
+    private var lockIsEnabled: Bool { requiresUnlock || isLockUITest }
+
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
     var body: some View {
         Group {
-            if !requiresUnlock || isUnlocked {
+            if !lockIsEnabled || isUnlocked {
                 content
             } else {
                 VStack(spacing: 16) {
@@ -64,8 +76,9 @@ private struct AppLockGate<Content: View>: View {
             }
         }
         .task {
-            if requiresUnlock { await authenticate() }
-            else { isUnlocked = true }
+            guard lockIsEnabled else { isUnlocked = true; return }
+            guard !isLockUITest else { return }
+            await authenticate()
         }
         .onChange(of: requiresUnlock) { enabled in
             if enabled {
@@ -76,10 +89,10 @@ private struct AppLockGate<Content: View>: View {
             }
         }
         .onChange(of: scenePhase) { phase in
-            if phase == .background, requiresUnlock {
+            if phase == .background, lockIsEnabled {
                 isUnlocked = false
-            } else if phase == .active, requiresUnlock, !isUnlocked {
-                Task { await authenticate() }
+            } else if phase == .active, lockIsEnabled, !isUnlocked {
+                if !isLockUITest { Task { await authenticate() } }
             }
         }
     }
@@ -87,7 +100,12 @@ private struct AppLockGate<Content: View>: View {
     @MainActor
     private func authenticate() async {
         guard !isAuthenticating else { return }
-        guard requiresUnlock else { isUnlocked = true; return }
+        guard lockIsEnabled else { isUnlocked = true; return }
+        if isLockUITest {
+            isUnlocked = true
+            message = nil
+            return
+        }
         isAuthenticating = true
         defer { isAuthenticating = false }
 
