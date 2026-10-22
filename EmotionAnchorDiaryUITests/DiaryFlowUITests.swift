@@ -53,6 +53,37 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
     }
 
+    func testCloudAnalysisDisabledUsesLocalEmpathy() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, extraArguments: ["-ui-testing-ai-success"])
+
+        let editor = app.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText("I felt overwhelmed today!")
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+
+        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["谢谢你写下这些感受。"].exists)
+    }
+
+    func testCloudAnalysisEnabledShowsAIResponse() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, cloudAnalysisAllowed: true, extraArguments: ["-ui-testing-ai-success"])
+
+        let editor = app.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText("I felt overwhelmed today! I talked with a friend. I feel calmer now?")
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+
+        XCTAssertTrue(app.staticTexts["谢谢你写下这些感受。"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["做三次深呼吸"].exists)
+        XCTAssertTrue(app.staticTexts["已保存并加密，已完成 AI 分析"].exists)
+    }
+
     func testDeleteAllDataRequiresConfirmation() throws {
         let app = XCUIApplication()
         launchDiary(in: app)
@@ -122,8 +153,12 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
     }
 
-    private func launchDiary(in app: XCUIApplication, extraArguments: [String] = []) {
-        app.launchArguments += ["-ui-testing", "-allowCloudAnalysis", "NO"]
+    private func launchDiary(
+        in app: XCUIApplication,
+        cloudAnalysisAllowed: Bool = false,
+        extraArguments: [String] = []
+    ) {
+        app.launchArguments += ["-ui-testing", "-allowCloudAnalysis", cloudAnalysisAllowed ? "YES" : "NO"]
         app.launchArguments += extraArguments
         app.launch()
     }
