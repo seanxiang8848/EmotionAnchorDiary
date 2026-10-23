@@ -183,6 +183,14 @@ struct AppSettingsView: View {
     @AppStorage("requireAppUnlock") private var requireAppUnlock = false
     @AppStorage("allowCloudAnalysis") private var allowCloudAnalysis = false
 
+    private var isUITesting: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-ui-testing")
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         Form {
             Section("AI 服务") {
@@ -305,8 +313,10 @@ struct AppSettingsView: View {
         viewModel.matchedGoals = []
         viewModel.goalSnapshots = []
         var keyCleanupFailed = false
-        do { try CryptoManager.shared.deleteKey() } catch { keyCleanupFailed = true }
-        do { try AIKeyStore.delete() } catch { keyCleanupFailed = true }
+        if !isUITesting {
+            do { try CryptoManager.shared.deleteKey() } catch { keyCleanupFailed = true }
+            do { try AIKeyStore.delete() } catch { keyCleanupFailed = true }
+        }
         statusMessage = keyCleanupFailed
             ? "日记和目标已删除，但 Keychain 清理未能完整完成。"
             : "本机日记、目标和 AI 密钥已删除。"
