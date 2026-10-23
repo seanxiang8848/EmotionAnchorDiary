@@ -254,6 +254,23 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertFalse(lockTitle.exists)
     }
 
+    func testFailedAppLockAuthenticationKeepsDiaryLocked() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, extraArguments: [
+            "-ui-testing-app-lock",
+            "-ui-testing-app-lock-failure",
+            "-ui-testing-enable-app-lock"
+        ])
+
+        let unlockButton = app.buttons["使用 Face ID 或设备密码解锁"]
+        XCTAssertTrue(unlockButton.waitForExistence(timeout: 10))
+        unlockButton.tap()
+
+        XCTAssertTrue(app.staticTexts["验证未完成，请重试。"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["保存并生成共情"].exists)
+        XCTAssertFalse(app.textViews["diary-entry-editor"].exists)
+    }
+
     private func launchDiary(
         in app: XCUIApplication,
         cloudAnalysisAllowed: Bool = false,

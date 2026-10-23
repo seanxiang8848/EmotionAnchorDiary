@@ -98,7 +98,12 @@ private struct AppLockGate<Content: View>: View {
         #endif
     }
 
-    private var lockIsEnabled: Bool { requiresUnlock }
+    private var lockIsEnabled: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-enable-app-lock") { return true }
+        #endif
+        return requiresUnlock
+    }
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
@@ -153,6 +158,10 @@ private struct AppLockGate<Content: View>: View {
         guard !isAuthenticating else { return }
         guard lockIsEnabled else { isUnlocked = true; return }
         if isLockUITest {
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-app-lock-failure") {
+                message = "验证未完成，请重试。"
+                return
+            }
             isUnlocked = true
             message = nil
             return
