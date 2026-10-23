@@ -1,5 +1,6 @@
 import CoreData
 import XCTest
+@testable import EmotionAnchorDiary
 
 /// 测试用的一次性 Core Data 栈。
 ///

@@ -185,7 +185,8 @@ final class GoalManagerTests: XCTestCase {
 
         let matched = try manager.associateGoals(with: entry, plainText: "今天只去散步了")
 
-        XCTAssertEqual(matched.map { $0.title }, ["每天散步"])
+        // fetchRequest 没有排序描述符，比对时不去依赖返回顺序
+        XCTAssertEqual(Set(matched.compactMap { $0.title }), ["每天散步"])
     }
 
     func testAssociateGoalsMatchesCaseInsensitively() throws {
