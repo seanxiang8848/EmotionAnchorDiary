@@ -86,6 +86,23 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
     }
 
+    func testCloudAnalysisFailureFallsBackAndPreservesDiary() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, cloudAnalysisAllowed: true, extraArguments: ["-ui-testing-ai-failure"])
+
+        let note = "Cloud AI failure still saves this diary."
+        let editor = app.textViews["diary-entry-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText(note)
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+
+        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
+        app.buttons["查看历史条目"].tap()
+        XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
+    }
+
     func testDeleteAllDataRequiresConfirmation() throws {
         let app = XCUIApplication()
         launchDiary(in: app)

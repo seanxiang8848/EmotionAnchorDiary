@@ -13,34 +13,41 @@ struct EmotionAnchorDiaryApp: App {
 
         #if DEBUG
         let useUITestAIResponse = ProcessInfo.processInfo.arguments.contains("-ui-testing-ai-success")
+        let useUITestAIFailure = ProcessInfo.processInfo.arguments.contains("-ui-testing-ai-failure")
         #else
         let useUITestAIResponse = false
+        let useUITestAIFailure = false
         #endif
 
         // Endpoint settings are public configuration; the user-provided key stays in Keychain.
         let emotionService = EmotionCoachService(
             endpointProvider: {
                 #if DEBUG
-                if useUITestAIResponse { return URL(string: "https://ai.example.test/empathy") }
+                if useUITestAIResponse || useUITestAIFailure {
+                    return URL(string: "https://ai.example.test/empathy")
+                }
                 #endif
                 return APIConfig.load()?.endpoint
             },
             apiKeyProvider: {
                 #if DEBUG
-                if useUITestAIResponse { return "ui-test-key" }
+                if useUITestAIResponse || useUITestAIFailure { return "ui-test-key" }
                 #endif
                 return AIKeyStore.load()
             },
             sendRequest: { request in
                 #if DEBUG
-                if useUITestAIResponse,
+                if useUITestAIResponse || useUITestAIFailure,
                    let url = request.url,
                    let response = HTTPURLResponse(
                     url: url,
-                    statusCode: 200,
+                    statusCode: useUITestAIFailure ? 503 : 200,
                     httpVersion: nil,
                     headerFields: ["Content-Type": "application/json"]
                    ) {
+                    if useUITestAIFailure {
+                        return (Data("{}".utf8), response)
+                    }
                     let data = Data("""
                     {"mood":"被倾听","empathy":"谢谢你写下这些感受。","suggestions":["做三次深呼吸"]}
                     """.utf8)
