@@ -239,6 +239,7 @@ struct AppSettingsView: View {
 
             Section("隐私") {
                 Toggle("启动时使用 Face ID 或设备密码", isOn: $requireAppUnlock)
+                    .accessibilityIdentifier("app-lock-toggle")
                 Text("AI 云端分析默认关闭。开启后，应用会先在本机提取日记摘要，再发送摘要；完整日记仍只保存在本机。")
                     .font(.footnote)
                     .foregroundColor(.secondary)

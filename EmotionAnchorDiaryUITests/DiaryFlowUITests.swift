@@ -222,13 +222,13 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
 
         openSettings(in: app)
-        let appLockSwitch = app.switches["启动时使用 Face ID 或设备密码"]
+        let appLockSwitch = app.switches["app-lock-toggle"]
         XCTAssertTrue(appLockSwitch.waitForExistence(timeout: 5))
         if appLockSwitch.value as? String == "1" {
-            appLockSwitch.tap()
+            tapAppLockSwitch(appLockSwitch)
             XCTAssertTrue(waitForSwitch(appLockSwitch, value: "0"))
         }
-        appLockSwitch.tap()
+        tapAppLockSwitch(appLockSwitch)
         XCTAssertTrue(waitForSwitch(appLockSwitch, value: "1"))
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
@@ -244,7 +244,7 @@ final class DiaryFlowUITests: XCTestCase {
 
         openSettings(in: app)
         XCTAssertTrue(waitForSwitch(appLockSwitch, value: "1"))
-        appLockSwitch.tap()
+        tapAppLockSwitch(appLockSwitch)
         XCTAssertTrue(waitForSwitch(appLockSwitch, value: "0"))
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
@@ -270,5 +270,10 @@ final class DiaryFlowUITests: XCTestCase {
         let predicate = NSPredicate(format: "value == %@", value)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func tapAppLockSwitch(_ element: XCUIElement) {
+        XCTAssertTrue(element.isHittable)
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
     }
 }
