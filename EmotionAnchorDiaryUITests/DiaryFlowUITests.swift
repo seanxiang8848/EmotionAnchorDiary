@@ -226,9 +226,10 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(appLockSwitch.waitForExistence(timeout: 5))
         if appLockSwitch.value as? String == "1" {
             appLockSwitch.tap()
+            XCTAssertTrue(waitForSwitch(appLockSwitch, value: "0"))
         }
         appLockSwitch.tap()
-        XCTAssertEqual(appLockSwitch.value as? String, "1")
+        XCTAssertTrue(waitForSwitch(appLockSwitch, value: "1"))
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
 
@@ -242,9 +243,9 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
 
         openSettings(in: app)
-        XCTAssertEqual(appLockSwitch.value as? String, "1")
+        XCTAssertTrue(waitForSwitch(appLockSwitch, value: "1"))
         appLockSwitch.tap()
-        XCTAssertEqual(appLockSwitch.value as? String, "0")
+        XCTAssertTrue(waitForSwitch(appLockSwitch, value: "0"))
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
     }
@@ -263,5 +264,11 @@ final class DiaryFlowUITests: XCTestCase {
         let settingsButton = app.buttons["设置"]
         XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
         settingsButton.tap()
+    }
+
+    private func waitForSwitch(_ element: XCUIElement, value: String, timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", value)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }

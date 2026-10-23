@@ -126,10 +126,10 @@ private struct AppLockGate<Content: View>: View {
             await authenticate()
         }
         .onChange(of: requiresUnlock) { enabled in
-            if enabled {
-                isUnlocked = false
-                Task { await authenticate() }
-            } else {
+            // Enabling the setting should take effect on the next app launch or
+            // after the app returns from the background, not interrupt the
+            // Settings screen while the user is changing the toggle.
+            if !enabled {
                 isUnlocked = true
             }
         }
