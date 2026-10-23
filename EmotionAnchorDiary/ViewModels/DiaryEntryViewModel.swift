@@ -12,12 +12,14 @@ final class DiaryEntryViewModel: ObservableObject {
     struct GoalProgressSnapshot: Identifiable {
         let id: UUID
         let title: String
-        let completedHits: Int
-        let targetFrequency: Int
+        /// 周期内已完成的天数（同一天写多篇只算一天）。
+        let completedDays: Int
+        /// 周期内需要完成的天数。
+        let targetDays: Int
 
         var progressValue: Double {
-            guard targetFrequency > 0 else { return 1 }
-            return min(1, Double(completedHits) / Double(targetFrequency))
+            guard targetDays > 0 else { return 1 }
+            return min(1, Double(completedDays) / Double(targetDays))
         }
     }
 
@@ -141,12 +143,12 @@ final class DiaryEntryViewModel: ObservableObject {
             matchedGoals = matched
             goalSnapshots = matched.compactMap { goal in
                 guard let id = goal.id else { return nil }
-                // 每次匹配视为一次完成，用于简单进度提示
+                // 进度按「周期内完成的天数」实时算，不存累计计数
                 return GoalProgressSnapshot(
                     id: id,
                     title: goal.title ?? "未命名目标",
-                    completedHits: Int(goal.hits),
-                    targetFrequency: Int(goal.targetFrequency)
+                    completedDays: goal.completedDays(),
+                    targetDays: goal.effectiveTargetDays
                 )
             }
 

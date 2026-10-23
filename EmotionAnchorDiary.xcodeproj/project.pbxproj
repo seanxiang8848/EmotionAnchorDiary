@@ -30,6 +30,8 @@
 		9A00000000000000000000D6 /* GoalManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000D7 /* GoalManagerTests.swift */; };
 		9A00000000000000000000D8 /* LocalDataCleanerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000D9 /* LocalDataCleanerTests.swift */; };
 		9A00000000000000000000DA /* CoreDataTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000DB /* CoreDataTestSupport.swift */; };
+		9A00000000000000000000DC /* GoalProgressCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000DD /* GoalProgressCalculator.swift */; };
+		9A00000000000000000000DE /* GoalProgressCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000DF /* GoalProgressCalculatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +80,8 @@
 		9A00000000000000000000D7 /* GoalManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalManagerTests.swift; sourceTree = "<group>"; };
 		9A00000000000000000000D9 /* LocalDataCleanerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDataCleanerTests.swift; sourceTree = "<group>"; };
 		9A00000000000000000000DB /* CoreDataTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataTestSupport.swift; sourceTree = "<group>"; };
+		9A00000000000000000000DD /* GoalProgressCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalProgressCalculator.swift; sourceTree = "<group>"; };
+		9A00000000000000000000DF /* GoalProgressCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalProgressCalculatorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -149,6 +153,7 @@
 				9A00000000000000000000D7 /* GoalManagerTests.swift */,
 				9A00000000000000000000D9 /* LocalDataCleanerTests.swift */,
 				9A00000000000000000000DB /* CoreDataTestSupport.swift */,
+				9A00000000000000000000DF /* GoalProgressCalculatorTests.swift */,
 			);
 			path = EmotionAnchorDiaryTests;
 			sourceTree = "<group>";
@@ -228,6 +233,7 @@
 			isa = PBXGroup;
 			children = (
 				9A0000000000000000000026 /* GoalManager.swift */,
+				9A00000000000000000000DD /* GoalProgressCalculator.swift */,
 			);
 			path = Goals;
 			sourceTree = "<group>";
@@ -413,6 +419,7 @@
 				9A000000000000000000004C /* EmotionAnchorDiary.xcdatamodeld in Sources */,
 				9A00000000000000000000D0 /* MoodTrendCalculator.swift in Sources */,
 				9A00000000000000000000D2 /* LocalDataCleaner.swift in Sources */,
+				9A00000000000000000000DC /* GoalProgressCalculator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

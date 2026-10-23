@@ -14,6 +14,12 @@ struct PersistenceController {
         if inMemory {
             container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
         }
+        // 目标模型加了周期字段、移除了旧的累计计数字段，显式打开轻量迁移，
+        // 避免旧版本装过的设备打不开。
+        container.persistentStoreDescriptions.forEach { description in
+            description.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+            description.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
+        }
 
         container.loadPersistentStores { description, error in
             if let error = error {

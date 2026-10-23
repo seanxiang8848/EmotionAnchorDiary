@@ -132,7 +132,7 @@ struct DiaryEntryView: View {
                                     Text(snapshot.title)
                                         .font(.subheadline)
                                     Spacer()
-                                    Text("\(snapshot.completedHits)/\(snapshot.targetFrequency)")
+                                    Text("\(snapshot.completedDays)/\(snapshot.targetDays) 天")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }

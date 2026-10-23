@@ -13,8 +13,8 @@
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="keywords" optional="YES" attributeType="Transformable" attributeValueClassName="NSArray"/>
-        <attribute name="targetFrequency" optional="YES" attributeType="Integer 16" defaultValueString="0"/>
-        <attribute name="hits" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="targetFrequency" optional="YES" attributeType="Integer 16" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="periodDays" optional="YES" attributeType="Integer 16" defaultValueString="7" usesScalarValueType="YES"/>
         <attribute name="lastUpdatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="entries" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Entry" inverseName="goals" inverseEntity="Entry"/>
     </entity>
