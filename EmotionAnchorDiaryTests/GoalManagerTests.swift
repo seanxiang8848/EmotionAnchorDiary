@@ -155,17 +155,42 @@ final class GoalManagerTests: XCTestCase {
         XCTAssertEqual(entry.goals?.count ?? 0, 0)
     }
 
-    /// 注意：这是**当前实现**的行为，不是已确认的产品规则。
-    /// 同一篇日记重复关联会重复计数，“hits 是否要去重 / targetFrequency 代表哪个周期”
-    /// 仍属 PRD 待确认项（PR-14 / P2-10）。规则一旦确定，应改这条测试。
-    func testCurrentBehavior_AssociatingTwiceCountsTwice() throws {
+    /// 产品规则：同一篇日记对同一个目标只计一次，重复关联不重复加 hits。
+    func testAssociatingTheSameEntryTwiceDoesNotDoubleCount() throws {
+        let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3)
+        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了")
+
+        let firstMatch = try manager.associateGoals(with: entry, plainText: "今天去散步了")
+        let secondMatch = try manager.associateGoals(with: entry, plainText: "今天去散步了")
+
+        XCTAssertEqual(goal.hits, 1)
+        XCTAssertEqual(firstMatch.count, 1)
+        XCTAssertEqual(secondMatch.count, 1, "重复关联仍应认为该日记命中了这个目标")
+        XCTAssertEqual(entry.goals?.count ?? 0, 1)
+    }
+
+    /// 两篇不同的日记命中同一个目标，应各计一次。
+    func testTwoDifferentEntriesEachCountOnce() throws {
+        let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3)
+        let morningEntry = try CoreDataTestSupport.makeEntry(in: context, text: "早上散步")
+        let eveningEntry = try CoreDataTestSupport.makeEntry(in: context, text: "晚上散步")
+
+        _ = try manager.associateGoals(with: morningEntry, plainText: "早上散步")
+        _ = try manager.associateGoals(with: eveningEntry, plainText: "晚上散步")
+
+        XCTAssertEqual(goal.hits, 2)
+        XCTAssertEqual(goal.entries?.count ?? 0, 2)
+    }
+
+    /// 日记改写后不再命中关键词时，已经记下的次数不会被扣回。
+    func testLosingTheKeywordDoesNotDecrementExistingHits() throws {
         let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3)
         let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了")
 
         _ = try manager.associateGoals(with: entry, plainText: "今天去散步了")
-        _ = try manager.associateGoals(with: entry, plainText: "今天去散步了")
+        let afterRewrite = try manager.associateGoals(with: entry, plainText: "今天什么都没做")
 
-        XCTAssertEqual(goal.hits, 2)
-        XCTAssertEqual(entry.goals?.count ?? 0, 1, "goals 是集合关系，重复关联不会重复挂接")
+        XCTAssertTrue(afterRewrite.isEmpty)
+        XCTAssertEqual(goal.hits, 1, "已计入的进度不回退")
     }
 }

@@ -53,6 +53,10 @@ final class GoalManager {
     }
 
     /// Performs a naive keyword scan on entry text and associates matching goals, returning matches for UI progress hints.
+    ///
+    /// 产品规则：**同一篇日记对同一个目标只计一次**。重复关联同一篇日记时
+    /// 仍会认为它命中该目标（会一并返回），但不再重复加计数、也不重复挂接，
+    /// 因此多次调用是幂等的。
     func associateGoals(with entry: Entry, plainText: String) throws -> [Goal] {
         let goalRequest = Goal.fetchRequest()
         let goals = try context.fetch(goalRequest)
@@ -61,14 +65,22 @@ final class GoalManager {
         var matched: [Goal] = []
         for goal in goals {
             let keywords = goal.keywordList
-            if keywords.contains(where: { lowercasedText.contains($0.lowercased()) }) {
-                entry.addToGoals(goal)
-                goal.lastUpdatedAt = Date()
-                goal.hits += 1
-                matched.append(goal)
-            }
+            guard keywords.contains(where: { lowercasedText.contains($0.lowercased()) }) else { continue }
+
+            matched.append(goal)
+            guard !isLinked(goal, to: entry) else { continue }
+
+            entry.addToGoals(goal)
+            goal.lastUpdatedAt = Date()
+            goal.hits += 1
         }
         try context.save()
         return matched
+    }
+
+    /// 判断这篇日记是否已经挂在该目标下，避免重复计数。
+    private func isLinked(_ goal: Goal, to entry: Entry) -> Bool {
+        guard let linkedGoals = entry.goals as? Set<Goal> else { return false }
+        return linkedGoals.contains { $0.id == goal.id }
     }
 }
