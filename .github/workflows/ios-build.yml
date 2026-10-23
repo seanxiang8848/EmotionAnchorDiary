@@ -54,10 +54,13 @@ jobs:
           set -e
           if [ -d "$RESULT_BUNDLE" ]; then
             echo "Xcode 测试摘要："
-            xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE"
+            # 这两条只是打印诊断信息，失败（例如 xcodebuild 崩溃导致 xcresult 没写完）
+            # 不应改变 job 结果，否则退出码会变成 64 而不是 xcodebuild 的真实状态。
+            xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE" || true
             echo "Xcode 测试详情："
-            xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE"
+            xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE" || true
           fi
+          echo "xcodebuild 退出码：$TEST_STATUS"
           exit "$TEST_STATUS"
 
       - name: 上传 Xcode 失败诊断包
