@@ -76,6 +76,34 @@ final class CryptoManagerTests: XCTestCase {
         XCTAssertEqual(card.suggestions, ["深呼吸"])
     }
 
+    func testAPIEndpointRequiresHTTPSAndHost() {
+        XCTAssertEqual(
+            APIConfig.validated("  https://ai.example.test/empathy  ")?.endpoint.absoluteString,
+            "https://ai.example.test/empathy"
+        )
+        XCTAssertNil(APIConfig.validated("http://ai.example.test/empathy"))
+        XCTAssertNil(APIConfig.validated("https:///empathy"))
+    }
+
+    func testEmotionCoachRejectsInsecureEndpointBeforeSendingRequest() async {
+        var requestWasSent = false
+        let service = EmotionCoachService(
+            endpointProvider: { URL(string: "http://ai.example.test/empathy") },
+            apiKeyProvider: { "test-key" },
+            sendRequest: { _ in
+                requestWasSent = true
+                throw URLError(.badURL)
+            }
+        )
+
+        do {
+            _ = try await service.fetchEmpathyCard(summary: "仅发送的摘要")
+            XCTFail("不安全的 HTTP 地址不应发送请求")
+        } catch {
+            XCTAssertFalse(requestWasSent)
+        }
+    }
+
     func testDiaryExportDecryptsFullTextAndSortsEntriesChronologically() throws {
         let crypto = makeCryptoManager()
         let earlierDate = Date(timeIntervalSince1970: 0)
