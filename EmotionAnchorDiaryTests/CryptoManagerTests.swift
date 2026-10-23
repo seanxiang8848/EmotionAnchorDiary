@@ -106,6 +106,25 @@ final class CryptoManagerTests: XCTestCase {
         }
     }
 
+    func testEmotionCoachRequiresAPIKeyBeforeSendingRequest() async {
+        var requestWasSent = false
+        let service = EmotionCoachService(
+            endpointProvider: { URL(string: "https://ai.example.test/empathy") },
+            apiKeyProvider: { nil },
+            sendRequest: { _ in
+                requestWasSent = true
+                throw URLError(.userAuthenticationRequired)
+            }
+        )
+
+        do {
+            _ = try await service.fetchEmpathyCard(summary: "仅发送的摘要")
+            XCTFail("缺少 API Key 时不应发送请求")
+        } catch {
+            XCTAssertFalse(requestWasSent)
+        }
+    }
+
     func testDiaryExportDecryptsFullTextAndSortsEntriesChronologically() throws {
         let crypto = makeCryptoManager()
         let earlierDate = Date(timeIntervalSince1970: 0)

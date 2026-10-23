@@ -86,6 +86,24 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
     }
 
+    func testCloudAnalysisWithoutAPIKeyUsesLocalEmpathyAndPreservesDiary() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, cloudAnalysisAllowed: true, extraArguments: ["-ui-testing-ai-missing-key"])
+
+        let note = "AI analysis must stay local when no API key is configured."
+        let editor = app.textViews["diary-entry-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText(note)
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+
+        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["谢谢你写下这些感受。"].exists)
+        app.buttons["查看历史条目"].tap()
+        XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
+    }
+
     func testCloudAnalysisFailureFallsBackAndPreservesDiary() throws {
         let app = XCUIApplication()
         launchDiary(in: app, cloudAnalysisAllowed: true, extraArguments: ["-ui-testing-ai-failure"])

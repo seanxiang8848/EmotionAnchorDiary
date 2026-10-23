@@ -20,16 +20,20 @@ struct EmotionAnchorDiaryApp: App {
         #if DEBUG
         let useUITestAIResponse = ProcessInfo.processInfo.arguments.contains("-ui-testing-ai-success")
         let useUITestAIFailure = ProcessInfo.processInfo.arguments.contains("-ui-testing-ai-failure")
+        let useUITestAIMissingKey = ProcessInfo.processInfo.arguments.contains("-ui-testing-ai-missing-key")
+        let useUITestAIRequestMock = useUITestAIResponse || useUITestAIFailure || useUITestAIMissingKey
         #else
         let useUITestAIResponse = false
         let useUITestAIFailure = false
+        let useUITestAIMissingKey = false
+        let useUITestAIRequestMock = false
         #endif
 
         // Endpoint settings are public configuration; the user-provided key stays in Keychain.
         let emotionService = EmotionCoachService(
             endpointProvider: {
                 #if DEBUG
-                if useUITestAIResponse || useUITestAIFailure {
+                if useUITestAIRequestMock {
                     return URL(string: "https://ai.example.test/empathy")
                 }
                 #endif
@@ -37,13 +41,14 @@ struct EmotionAnchorDiaryApp: App {
             },
             apiKeyProvider: {
                 #if DEBUG
+                if useUITestAIMissingKey { return nil }
                 if useUITestAIResponse || useUITestAIFailure { return "ui-test-key" }
                 #endif
                 return AIKeyStore.load()
             },
             sendRequest: { request in
                 #if DEBUG
-                if useUITestAIResponse || useUITestAIFailure,
+                if useUITestAIRequestMock,
                    let url = request.url,
                    let response = HTTPURLResponse(
                     url: url,
