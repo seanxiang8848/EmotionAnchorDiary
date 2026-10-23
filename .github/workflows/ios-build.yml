@@ -59,3 +59,12 @@ jobs:
             xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE"
           fi
           exit "$TEST_STATUS"
+
+      - name: 上传 Xcode 失败诊断包
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-test-diagnostics-${{ github.run_number }}
+          path: ${{ runner.temp }}/EmotionAnchorDiaryTests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
