@@ -64,7 +64,7 @@ final class CryptoManagerTests: XCTestCase {
                 XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
                 let body = try XCTUnwrap(request.httpBody)
                 let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
-                XCTAssertEqual(object["summary"], "仅发送的摘要")
+                XCTAssertEqual(object, ["summary": "仅发送的摘要"])
                 return (payload, response)
             }
         )
