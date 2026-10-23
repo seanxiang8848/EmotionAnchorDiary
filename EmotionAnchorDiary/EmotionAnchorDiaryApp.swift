@@ -7,6 +7,7 @@ struct EmotionAnchorDiaryApp: App {
     private let persistenceController = PersistenceController.shared
 
     @StateObject private var diaryViewModel: DiaryEntryViewModel
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     init() {
         #if DEBUG
@@ -74,12 +75,78 @@ struct EmotionAnchorDiaryApp: App {
         )
     }
 
+    /// 首次启动时显示引导页（P2-12）。
+    /// 所有以 -ui-testing 开头的启动参数（既有 UI 测试）默认跳过引导，
+    /// 只有显式传 -ui-testing-show-onboarding 才会在测试中显示。
+    private var shouldPresentOnboarding: Bool {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-testing-show-onboarding") {
+            return !hasCompletedOnboarding
+        }
+        if arguments.contains(where: { $0.hasPrefix("-ui-testing") }) {
+            return false
+        }
+        #endif
+        return !hasCompletedOnboarding
+    }
+
     var body: some Scene {
         WindowGroup {
             AppLockGate {
                 DiaryEntryView(viewModel: diaryViewModel)
             }
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .sheet(isPresented: Binding(
+                    get: { shouldPresentOnboarding },
+                    set: { newValue in
+                        if !newValue { hasCompletedOnboarding = true }
+                    }
+                )) {
+                    OnboardingView {
+                        hasCompletedOnboarding = true
+                    }
+                    .interactiveDismissDisabled()
+                }
+        }
+    }
+}
+
+/// 首次使用引导（P2-12）：说明本地加密、云端分析默认关闭、
+/// AI 密钥配置方式、语音权限用途以及导出/删除的影响。
+private struct OnboardingView: View {
+    let onContinue: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Label("日记只保存在这台设备上，正文加密存储", systemImage: "lock.shield")
+                    Label("云端 AI 分析默认关闭；开启后也只发送摘要，不发送全文", systemImage: "icloud.slash")
+                    Label("AI 服务地址与密钥在“设置”里配置，密钥保存在系统钥匙串", systemImage: "key")
+                    Label("语音转文字在本机完成，需要麦克风与语音识别权限", systemImage: "mic")
+                    Label("可随时导出日记；“删除全部数据”会同时清除密钥，不可恢复", systemImage: "square.and.arrow.up")
+                } header: {
+                    VStack(spacing: 8) {
+                        Text("欢迎使用情绪锚点日记")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        Text("开始之前，了解你的数据如何被保护")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button("开始写日记") { onContinue() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .accessibilityIdentifier("onboardingContinueButton")
+            }
         }
     }
 }

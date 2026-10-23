@@ -1,6 +1,28 @@
 import XCTest
 
 final class DiaryFlowUITests: XCTestCase {
+    /// P2-12：首次启动显示引导页，点“开始写日记”后进入主界面；再次启动不再显示。
+    func testOnboardingShowsOnceAndCanBeDismissed() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, extraArguments: ["-ui-testing-show-onboarding"])
+
+        XCTAssertTrue(app.staticTexts["欢迎使用情绪锚点日记"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["日记只保存在这台设备上，正文加密存储"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["onboardingContinueButton"].exists)
+
+        app.buttons["onboardingContinueButton"].tap()
+
+        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["欢迎使用情绪锚点日记"].exists)
+
+        // 再次启动（不带强制参数时，已完成标记生效）不应再显示引导
+        app.terminate()
+        let relaunchedApp = XCUIApplication()
+        launchDiary(in: relaunchedApp, extraArguments: ["-ui-testing-show-onboarding"])
+        XCTAssertTrue(relaunchedApp.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 10))
+        XCTAssertFalse(relaunchedApp.staticTexts["欢迎使用情绪锚点日记"].exists)
+    }
+
     func testDiaryScreenOpensSettingsAndShowsPrivacyActions() throws {
         let app = XCUIApplication()
         launchDiary(in: app)
