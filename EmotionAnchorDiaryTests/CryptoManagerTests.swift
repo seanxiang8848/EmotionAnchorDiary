@@ -125,6 +125,115 @@ final class CryptoManagerTests: XCTestCase {
         }
     }
 
+    // MARK: - AI 错误场景覆盖（P1-6）
+
+    /// 服务返回 500 等非 2xx 状态码时，应抛出“服务不可用”错误而非静默或崩溃
+    func testEmotionCoachThrowsOnServerError500() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
+        let response = try XCTUnwrap(HTTPURLResponse(
+            url: endpoint,
+            statusCode: 500,
+            httpVersion: nil,
+            headerFields: nil
+        ))
+        let service = EmotionCoachService(
+            endpointProvider: { endpoint },
+            apiKeyProvider: { "test-key" },
+            sendRequest: { _ in (Data("{}".utf8), response) }
+        )
+
+        do {
+            _ = try await service.fetchEmpathyCard(summary: "摘要")
+            XCTFail("服务返回 500 时应抛出错误")
+        } catch {
+            let nsError = error as NSError
+            XCTAssertEqual(nsError.domain, "EmotionCoach")
+            XCTAssertEqual(nsError.code, 1)
+        }
+    }
+
+    /// API Key 错误（401）应走同样的服务错误路径，且不应泄露密钥细节
+    func testEmotionCoachThrowsOnUnauthorizedAPIKey() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
+        let response = try XCTUnwrap(HTTPURLResponse(
+            url: endpoint,
+            statusCode: 401,
+            httpVersion: nil,
+            headerFields: nil
+        ))
+        let service = EmotionCoachService(
+            endpointProvider: { endpoint },
+            apiKeyProvider: { "wrong-key" },
+            sendRequest: { _ in (Data("{}".utf8), response) }
+        )
+
+        do {
+            _ = try await service.fetchEmpathyCard(summary: "摘要")
+            XCTFail("API Key 无效（401）时应抛出错误")
+        } catch {
+            let nsError = error as NSError
+            XCTAssertEqual(nsError.domain, "EmotionCoach")
+            XCTAssertEqual(nsError.code, 1)
+        }
+    }
+
+    /// 服务返回 200 但响应体不是合法 JSON 时，应抛出解码错误而非显示错乱内容
+    func testEmotionCoachThrowsOnInvalidResponseBody() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
+        let response = try XCTUnwrap(HTTPURLResponse(
+            url: endpoint,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"]
+        ))
+        let service = EmotionCoachService(
+            endpointProvider: { endpoint },
+            apiKeyProvider: { "test-key" },
+            sendRequest: { _ in (Data("this is not json".utf8), response) }
+        )
+
+        do {
+            _ = try await service.fetchEmpathyCard(summary: "摘要")
+            XCTFail("响应体非法时应抛出解码错误")
+        } catch {
+            // 任何解码错误都符合预期
+        }
+    }
+
+    /// 断网时应如实抛出网络错误，上层据此回退到本地共情回应
+    func testEmotionCoachPropagatesNetworkFailure() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
+        let service = EmotionCoachService(
+            endpointProvider: { endpoint },
+            apiKeyProvider: { "test-key" },
+            sendRequest: { _ in throw URLError(.notConnectedToInternet) }
+        )
+
+        do {
+            _ = try await service.fetchEmpathyCard(summary: "摘要")
+            XCTFail("断网时应抛出网络错误")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
+
+    /// 请求超时（30 秒限制）应如实抛出超时错误
+    func testEmotionCoachPropagatesTimeout() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
+        let service = EmotionCoachService(
+            endpointProvider: { endpoint },
+            apiKeyProvider: { "test-key" },
+            sendRequest: { _ in throw URLError(.timedOut) }
+        )
+
+        do {
+            _ = try await service.fetchEmpathyCard(summary: "摘要")
+            XCTFail("超时应抛出超时错误")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .timedOut)
+        }
+    }
+
     func testDiaryExportDecryptsFullTextAndSortsEntriesChronologically() throws {
         let crypto = makeCryptoManager()
         let earlierDate = Date(timeIntervalSince1970: 0)
