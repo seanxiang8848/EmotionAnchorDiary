@@ -44,6 +44,7 @@ struct DiaryEntryView: View {
                     .frame(height: 200)
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2)))
                     .focused($isJournalFocused)
+                    .accessibilityIdentifier("diary-entry-editor")
 
                 Picker("此刻的心情", selection: $viewModel.selectedMoodTag) {
                     ForEach(MoodOption.all) { mood in

@@ -16,10 +16,17 @@ final class SpeechService: NSObject, ObservableObject {
 
     /// Asks users for microphone + speech permissions up front and caches the result for UI bindings.
     func requestAuthorization() async {
-        if ProcessInfo.processInfo.arguments.contains("-ui-testing-speech-denied") {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-testing-speech-denied") {
             authorizationStatus = .denied
             return
         }
+        if arguments.contains("-ui-testing-speech-success") {
+            authorizationStatus = .authorized
+            return
+        }
+        #endif
 
         let microphoneGranted = await withCheckedContinuation { continuation in
             AVAudioSession.sharedInstance().requestRecordPermission { granted in
@@ -45,7 +52,14 @@ final class SpeechService: NSObject, ObservableObject {
         }
 
         transcript = ""
-        isRecording = true
+
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-speech-success") {
+            transcript = "今天我感到有些紧张，但说出来后轻松了些。"
+            isRecording = true
+            return
+        }
+        #endif
 
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest else { return }
@@ -60,6 +74,7 @@ final class SpeechService: NSObject, ObservableObject {
 
         audioEngine.prepare()
         try audioEngine.start()
+        isRecording = true
 
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             guard let self else { return }
@@ -76,6 +91,13 @@ final class SpeechService: NSObject, ObservableObject {
     /// Stops the recording gracefully, ending the recognition task and audio session.
     func stopRecording() {
         isRecording = false
+
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-speech-success") {
+            return
+        }
+        #endif
+
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         recognitionRequest?.endAudio()

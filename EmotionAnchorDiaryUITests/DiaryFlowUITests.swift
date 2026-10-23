@@ -142,6 +142,24 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertFalse(app.buttons["停止录音"].exists)
     }
 
+    func testVoiceTranscriptCanBeSavedAndReadBackFromHistory() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app, extraArguments: ["-ui-testing-speech-success"])
+
+        app.buttons["语音记录"].tap()
+
+        let editor = app.textViews["diary-entry-editor"]
+        let transcript = "今天我感到有些紧张，但说出来后轻松了些。"
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue((editor.value as? String)?.contains(transcript) == true)
+        app.buttons["停止录音"].tap()
+        app.buttons["保存并生成共情"].tap()
+
+        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
+        app.buttons["查看历史条目"].tap()
+        XCTAssertTrue(app.staticTexts[transcript].waitForExistence(timeout: 10))
+    }
+
     func testAppLockHidesDiaryUntilUnlockedAndRelocksAfterBackgrounding() throws {
         let app = XCUIApplication()
         launchDiary(in: app, extraArguments: ["-ui-testing-app-lock"])
