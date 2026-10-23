@@ -252,7 +252,7 @@ struct AppSettingsView: View {
             defaultFilename: "EmotionAnchorDiary-Export"
         ) { result in
             if case .failure = result {
-                statusMessage = "导出失败。"
+                statusMessage = "导出失败，请检查存储位置后重试。"
                 showMessage = true
             }
         }
@@ -265,16 +265,20 @@ struct AppSettingsView: View {
     private func prepareExport() {
         do {
             let request = Entry.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(keyPath: \Entry.createdAt, ascending: true)]
             let entries = try context.fetch(request)
-            let formatter = ISO8601DateFormatter()
-            let blocks = try entries.map { entry -> String in
-                guard let encrypted = entry.encryptedBody else { throw CocoaError(.fileReadCorruptFile) }
-                let text = try CryptoManager.shared.decrypt(encrypted)
-                let date = formatter.string(from: entry.createdAt ?? Date())
-                return "\(date)  心情：\(entry.moodTag ?? "未记录")\n\(text)"
+            guard !entries.isEmpty else {
+                statusMessage = "暂无日记可导出。"
+                showMessage = true
+                return
             }
-            exportDocument = DiaryExportDocument(text: blocks.joined(separator: "\n\n---\n\n"))
+
+            let exportEntries = entries.map {
+                DiaryExportEntry(createdAt: $0.createdAt, moodTag: $0.moodTag, encryptedBody: $0.encryptedBody)
+            }
+            let text = try DiaryExportFormatter.render(exportEntries) {
+                try CryptoManager.shared.decrypt($0)
+            }
+            exportDocument = DiaryExportDocument(text: text)
             isExporting = true
         } catch {
             statusMessage = "读取或解密日记失败，未生成导出文件。"
@@ -306,6 +310,34 @@ struct AppSettingsView: View {
             ? "日记和目标已删除，但 Keychain 清理未能完整完成。"
             : "本机日记、目标和 AI 密钥已删除。"
         showMessage = true
+    }
+}
+
+struct DiaryExportEntry {
+    let createdAt: Date?
+    let moodTag: String?
+    let encryptedBody: Data?
+}
+
+enum DiaryExportFormatter {
+    static func render(
+        _ entries: [DiaryExportEntry],
+        decrypt: (Data) throws -> String
+    ) throws -> String {
+        let formatter = ISO8601DateFormatter()
+        let sortedEntries = entries.sorted {
+            ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast)
+        }
+
+        let blocks = try sortedEntries.map { entry -> String in
+            guard let encryptedBody = entry.encryptedBody else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            let body = try decrypt(encryptedBody)
+            let date = formatter.string(from: entry.createdAt ?? Date())
+            return "\(date)  心情：\(entry.moodTag ?? "未记录")\n\(body)"
+        }
+        return blocks.joined(separator: "\n\n---\n\n")
     }
 }
 

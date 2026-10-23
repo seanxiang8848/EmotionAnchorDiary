@@ -119,6 +119,18 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Browse"].waitForExistence(timeout: 10))
     }
 
+    func testExportWithoutEntriesShowsHelpfulMessage() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app)
+        openSettings(in: app)
+
+        app.buttons["导出日记"].tap()
+
+        let emptyExportAlert = app.alerts["暂无日记可导出。"]
+        XCTAssertTrue(emptyExportAlert.waitForExistence(timeout: 5))
+        XCTAssertTrue(emptyExportAlert.buttons["好"].exists)
+    }
+
     func testVoiceRecordingPermissionDenialShowsErrorWithoutRecording() throws {
         let app = XCUIApplication()
         launchDiary(in: app, extraArguments: ["-ui-testing-speech-denied"])

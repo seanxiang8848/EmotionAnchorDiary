@@ -76,6 +76,45 @@ final class CryptoManagerTests: XCTestCase {
         XCTAssertEqual(card.suggestions, ["深呼吸"])
     }
 
+    func testDiaryExportDecryptsFullTextAndSortsEntriesChronologically() throws {
+        let crypto = makeCryptoManager()
+        let earlierDate = Date(timeIntervalSince1970: 0)
+        let laterDate = Date(timeIntervalSince1970: 60)
+        let earlierText = "第一条日记的完整正文，保留所有内容。\n还有第二行。"
+        let laterText = "第二条日记的完整正文。"
+        let entries = [
+            DiaryExportEntry(
+                createdAt: laterDate,
+                moodTag: "焦虑",
+                encryptedBody: try crypto.encrypt(laterText)
+            ),
+            DiaryExportEntry(
+                createdAt: earlierDate,
+                moodTag: "开心",
+                encryptedBody: try crypto.encrypt(earlierText)
+            )
+        ]
+
+        let exportText = try DiaryExportFormatter.render(entries) {
+            try crypto.decrypt($0)
+        }
+
+        XCTAssertEqual(
+            exportText,
+            "1970-01-01T00:00:00Z  心情：开心\n\(earlierText)\n\n---\n\n" +
+                "1970-01-01T00:01:00Z  心情：焦虑\n\(laterText)"
+        )
+    }
+
+    func testDiaryExportFailsWhenEncryptedBodyIsMissing() {
+        let entry = DiaryExportEntry(createdAt: Date(), moodTag: nil, encryptedBody: nil)
+        let crypto = makeCryptoManager()
+
+        XCTAssertThrowsError(try DiaryExportFormatter.render([entry]) {
+            try crypto.decrypt($0)
+        })
+    }
+
     private func makeCryptoManager() -> CryptoManager {
         CryptoManager(testKey: SymmetricKey(size: .bits256))
     }
