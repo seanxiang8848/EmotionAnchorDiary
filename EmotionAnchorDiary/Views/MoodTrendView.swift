@@ -10,28 +10,17 @@ struct MoodTrendView: View {
 
     @State private var selectedRange = 7
 
-    private struct MoodPoint: Identifiable {
-        let day: Date
-        let score: Double
-        var id: Date { day }
+    /// 计算逻辑放在 MoodTrendCalculator 里，便于单元测试覆盖日期边界。
+    private var points: [MoodTrendCalculator.MoodPoint] {
+        let samples = entries.compactMap { entry -> MoodTrendCalculator.MoodSample? in
+            guard let date = entry.createdAt, let mood = moodOption(for: entry.moodTag) else { return nil }
+            return MoodTrendCalculator.MoodSample(date: date, score: mood.score)
+        }
+        return MoodTrendCalculator.dailyAveragePoints(from: samples, rangeDays: selectedRange)
     }
 
-    private var points: [MoodPoint] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        guard let firstDay = calendar.date(byAdding: .day, value: -(selectedRange - 1), to: today) else { return [] }
-
-        let grouped = Dictionary(grouping: entries.compactMap { entry -> (Date, Double)? in
-            guard let date = entry.createdAt,
-                  let mood = MoodOption.all.first(where: { $0.tag == entry.moodTag }),
-                  date >= firstDay,
-                  date < (calendar.date(byAdding: .day, value: 1, to: today) ?? today) else { return nil }
-            return (calendar.startOfDay(for: date), mood.score)
-        }, by: { $0.0 })
-
-        return grouped.map { day, values in
-            MoodPoint(day: day, score: values.map { $0.1 }.reduce(0, +) / Double(values.count))
-        }.sorted { $0.day < $1.day }
+    private func moodOption(for tag: String?) -> MoodOption? {
+        MoodOption.all.first { $0.tag == tag }
     }
 
     var body: some View {

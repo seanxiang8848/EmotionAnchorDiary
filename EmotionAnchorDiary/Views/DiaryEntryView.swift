@@ -303,30 +303,32 @@ struct AppSettingsView: View {
     }
 
     private func deleteAllData() {
-        do {
-            for entry in try context.fetch(Entry.fetchRequest()) { context.delete(entry) }
-            for goal in try context.fetch(Goal.fetchRequest()) { context.delete(goal) }
-            try context.save()
-        } catch {
-            context.rollback()
-            statusMessage = "删除本地数据失败，请重试。"
-            showMessage = true
-            return
+        // UI 测试下换成空操作，避免动到模拟器/开发机的真实 Keychain。
+        let cleaner: LocalDataCleaner
+        if isUITesting {
+            cleaner = LocalDataCleaner(context: context, deleteEncryptionKey: {}, deleteAPIKey: {})
+        } else {
+            cleaner = LocalDataCleaner(
+                context: context,
+                deleteEncryptionKey: { try CryptoManager.shared.deleteKey() },
+                deleteAPIKey: { try AIKeyStore.delete() }
+            )
         }
 
-        allowCloudAnalysis = false
-        viewModel.journalText = ""
-        viewModel.empathyCard = nil
-        viewModel.matchedGoals = []
-        viewModel.goalSnapshots = []
-        var keyCleanupFailed = false
-        if !isUITesting {
-            do { try CryptoManager.shared.deleteKey() } catch { keyCleanupFailed = true }
-            do { try AIKeyStore.delete() } catch { keyCleanupFailed = true }
+        do {
+            let outcome = try cleaner.deleteAllData()
+
+            allowCloudAnalysis = false
+            viewModel.journalText = ""
+            viewModel.empathyCard = nil
+            viewModel.matchedGoals = []
+            viewModel.goalSnapshots = []
+            statusMessage = outcome.keyCleanupFailed
+                ? "日记和目标已删除，但 Keychain 清理未能完整完成。"
+                : "本机日记、目标和 AI 密钥已删除。"
+        } catch {
+            statusMessage = "删除本地数据失败，请重试。"
         }
-        statusMessage = keyCleanupFailed
-            ? "日记和目标已删除，但 Keychain 清理未能完整完成。"
-            : "本机日记、目标和 AI 密钥已删除。"
         showMessage = true
     }
 }

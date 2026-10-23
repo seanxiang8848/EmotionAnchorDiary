@@ -24,6 +24,12 @@
 		9A00000000000000000000A0 /* GoalDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000A1 /* GoalDashboardView.swift */; };
 		9A00000000000000000000A2 /* MoodTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000A3 /* MoodTrendView.swift */; };
 		9A00000000000000000000B0 /* DiaryFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000B3 /* DiaryFlowUITests.swift */; };
+		9A00000000000000000000D0 /* MoodTrendCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000D1 /* MoodTrendCalculator.swift */; };
+		9A00000000000000000000D2 /* LocalDataCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000D3 /* LocalDataCleaner.swift */; };
+		9A00000000000000000000D4 /* MoodTrendCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000D5 /* MoodTrendCalculatorTests.swift */; };
+		9A00000000000000000000D6 /* GoalManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000D7 /* GoalManagerTests.swift */; };
+		9A00000000000000000000D8 /* LocalDataCleanerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000D9 /* LocalDataCleanerTests.swift */; };
+		9A00000000000000000000DA /* CoreDataTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000DB /* CoreDataTestSupport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +72,12 @@
 		9A00000000000000000000A3 /* MoodTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodTrendView.swift; sourceTree = "<group>"; };
 		9A00000000000000000000B2 /* EmotionAnchorDiaryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EmotionAnchorDiaryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A00000000000000000000B3 /* DiaryFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryFlowUITests.swift; sourceTree = "<group>"; };
+		9A00000000000000000000D1 /* MoodTrendCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodTrendCalculator.swift; sourceTree = "<group>"; };
+		9A00000000000000000000D3 /* LocalDataCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDataCleaner.swift; sourceTree = "<group>"; };
+		9A00000000000000000000D5 /* MoodTrendCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodTrendCalculatorTests.swift; sourceTree = "<group>"; };
+		9A00000000000000000000D7 /* GoalManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalManagerTests.swift; sourceTree = "<group>"; };
+		9A00000000000000000000D9 /* LocalDataCleanerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDataCleanerTests.swift; sourceTree = "<group>"; };
+		9A00000000000000000000DB /* CoreDataTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataTestSupport.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +145,10 @@
 			isa = PBXGroup;
 			children = (
 				9A0000000000000000000030 /* CryptoManagerTests.swift */,
+				9A00000000000000000000D5 /* MoodTrendCalculatorTests.swift */,
+				9A00000000000000000000D7 /* GoalManagerTests.swift */,
+				9A00000000000000000000D9 /* LocalDataCleanerTests.swift */,
+				9A00000000000000000000DB /* CoreDataTestSupport.swift */,
 			);
 			path = EmotionAnchorDiaryTests;
 			sourceTree = "<group>";
@@ -161,8 +177,26 @@
 				9A0000000000000000000015 /* Speech */,
 				9A0000000000000000000016 /* AI */,
 				9A0000000000000000000017 /* Goals */,
+				9A00000000000000000000C3 /* Trends */,
+				9A00000000000000000000C4 /* Privacy */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		9A00000000000000000000C3 /* Trends */ = {
+			isa = PBXGroup;
+			children = (
+				9A00000000000000000000D1 /* MoodTrendCalculator.swift */,
+			);
+			path = Trends;
+			sourceTree = "<group>";
+		};
+		9A00000000000000000000C4 /* Privacy */ = {
+			isa = PBXGroup;
+			children = (
+				9A00000000000000000000D3 /* LocalDataCleaner.swift */,
+			);
+			path = Privacy;
 			sourceTree = "<group>";
 		};
 		9A0000000000000000000014 /* Crypto */ = {
@@ -377,6 +411,8 @@
 				9A00000000000000000000A0 /* GoalDashboardView.swift in Sources */,
 				9A00000000000000000000A2 /* MoodTrendView.swift in Sources */,
 				9A000000000000000000004C /* EmotionAnchorDiary.xcdatamodeld in Sources */,
+				9A00000000000000000000D0 /* MoodTrendCalculator.swift in Sources */,
+				9A00000000000000000000D2 /* LocalDataCleaner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -385,6 +421,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				9A000000000000000000004D /* CryptoManagerTests.swift in Sources */,
+				9A00000000000000000000D4 /* MoodTrendCalculatorTests.swift in Sources */,
+				9A00000000000000000000D6 /* GoalManagerTests.swift in Sources */,
+				9A00000000000000000000D8 /* LocalDataCleanerTests.swift in Sources */,
+				9A00000000000000000000DA /* CoreDataTestSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
