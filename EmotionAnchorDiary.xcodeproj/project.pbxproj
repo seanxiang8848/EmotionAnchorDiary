@@ -432,6 +432,7 @@
 				9A00000000000000000000D6 /* GoalManagerTests.swift in Sources */,
 				9A00000000000000000000D8 /* LocalDataCleanerTests.swift in Sources */,
 				9A00000000000000000000DA /* CoreDataTestSupport.swift in Sources */,
+				9A00000000000000000000DE /* GoalProgressCalculatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
