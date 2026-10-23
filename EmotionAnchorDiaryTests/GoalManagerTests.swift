@@ -168,7 +168,8 @@ final class GoalManagerTests: XCTestCase {
 
     func testAssociateGoalsLinksTheEntry() throws {
         let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3, periodDays: 7)
-        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了")
+        // 必须落在基准日的窗口内，否则 completedDays 会当成超期记录
+        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了", createdAt: date(days: 0))
 
         let matched = try manager.associateGoals(with: entry, plainText: "今天去散步了")
 
@@ -200,7 +201,7 @@ final class GoalManagerTests: XCTestCase {
 
     func testAssociateGoalsLeavesGoalsUntouchedWhenNothingMatches() throws {
         let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3, periodDays: 7)
-        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天什么都没做")
+        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天什么都没做", createdAt: date(days: 0))
 
         let matched = try manager.associateGoals(with: entry, plainText: "今天什么都没做")
 
@@ -212,7 +213,7 @@ final class GoalManagerTests: XCTestCase {
     /// 同一篇日记重复关联只挂接一次。
     func testAssociatingTheSameEntryTwiceIsIdempotent() throws {
         let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3, periodDays: 7)
-        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了")
+        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了", createdAt: date(days: 0))
 
         let first = try manager.associateGoals(with: entry, plainText: "今天去散步了")
         let second = try manager.associateGoals(with: entry, plainText: "今天去散步了")
@@ -227,7 +228,7 @@ final class GoalManagerTests: XCTestCase {
     /// 已经计入的那一天仍然保留。若要「改写即回退」，需要另行解除挂接。
     func testCurrentBehavior_EditingAwayTheKeywordKeepsTheLinkedDay() throws {
         let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3, periodDays: 7)
-        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了")
+        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天去散步了", createdAt: date(days: 0))
 
         _ = try manager.associateGoals(with: entry, plainText: "今天去散步了")
         let afterRewrite = try manager.associateGoals(with: entry, plainText: "今天什么都没做")
