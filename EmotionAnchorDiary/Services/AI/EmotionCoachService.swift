@@ -61,8 +61,10 @@ final class EmotionCoachService {
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
+        request.timeoutInterval = 30
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = try JSONEncoder().encode(["summary": summary])
 
         let (data, response) = try await sendRequest(request)

@@ -60,8 +60,10 @@ final class CryptoManagerTests: XCTestCase {
             apiKeyProvider: { "test-key" },
             sendRequest: { request in
                 XCTAssertEqual(request.httpMethod, "POST")
+                XCTAssertEqual(request.timeoutInterval, 30)
                 XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-key")
                 XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/json")
                 let body = try XCTUnwrap(request.httpBody)
                 let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
                 XCTAssertEqual(object, ["summary": "仅发送的摘要"])
