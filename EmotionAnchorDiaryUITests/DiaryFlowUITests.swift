@@ -160,9 +160,13 @@ final class DiaryFlowUITests: XCTestCase {
         openSettings(in: app)
         app.buttons["导出日记"].tap()
 
-        // The simulator may not have an "On My iPhone" Files provider. Verify
-        // that the system export UI is presented, then cancel without claiming
-        // that a file was written to a destination unavailable in CI.
+        // The simulator may not have an "On My iPhone" Files provider. Open
+        // the browser, then cancel without claiming that a file was written
+        // to a destination unavailable in CI.
+        let browseButton = app.buttons["Browse"]
+        XCTAssertTrue(browseButton.waitForExistence(timeout: 10))
+        browseButton.tap()
+
         let cancelButton = app.buttons["Cancel"]
         XCTAssertTrue(cancelButton.waitForExistence(timeout: 10))
         cancelButton.tap()
