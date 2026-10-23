@@ -261,7 +261,13 @@ struct AppSettingsView: View {
             contentType: .plainText,
             defaultFilename: "EmotionAnchorDiary-Export"
         ) { result in
-            if case .failure = result {
+            switch result {
+            case .success:
+                statusMessage = "日记已导出。"
+                showMessage = true
+            case .failure(let error) where (error as? CocoaError)?.code == .userCancelled:
+                break
+            case .failure:
                 statusMessage = "导出失败，请检查存储位置后重试。"
                 showMessage = true
             }

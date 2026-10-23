@@ -145,7 +145,7 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts[note].exists)
     }
 
-    func testExportSavedDiaryPresentsFilePicker() throws {
+    func testExportSavedDiaryCanBeSavedToFiles() throws {
         let app = XCUIApplication()
         launchDiary(in: app)
 
@@ -160,9 +160,21 @@ final class DiaryFlowUITests: XCTestCase {
         openSettings(in: app)
         app.buttons["导出日记"].tap()
 
-        // The system document picker is presented only after the app fetches and
-        // decrypts the saved entry and builds the export document.
-        XCTAssertTrue(app.buttons["Browse"].waitForExistence(timeout: 10))
+        let browseButton = app.buttons["Browse"]
+        XCTAssertTrue(browseButton.waitForExistence(timeout: 10))
+        browseButton.tap()
+
+        let onMyIPhone = app.buttons["On My iPhone"]
+        XCTAssertTrue(onMyIPhone.waitForExistence(timeout: 10))
+        onMyIPhone.tap()
+
+        let saveButton = app.buttons["Save"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 10))
+        saveButton.tap()
+
+        let exportedAlert = app.alerts["日记已导出。"]
+        XCTAssertTrue(exportedAlert.waitForExistence(timeout: 10))
+        XCTAssertTrue(exportedAlert.buttons["好"].exists)
     }
 
     func testExportWithoutEntriesShowsHelpfulMessage() throws {
