@@ -221,6 +221,17 @@ final class DiaryFlowUITests: XCTestCase {
         unlockButton.tap()
         XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
 
+        openSettings(in: app)
+        let appLockSwitch = app.switches["启动时使用 Face ID 或设备密码"]
+        XCTAssertTrue(appLockSwitch.waitForExistence(timeout: 5))
+        if appLockSwitch.value as? String == "1" {
+            appLockSwitch.tap()
+        }
+        appLockSwitch.tap()
+        XCTAssertEqual(appLockSwitch.value as? String, "1")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
+
         XCUIDevice.shared.press(.home)
         app.activate()
         XCTAssertTrue(lockTitle.waitForExistence(timeout: 10))
@@ -229,6 +240,13 @@ final class DiaryFlowUITests: XCTestCase {
 
         unlockButton.tap()
         XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
+
+        openSettings(in: app)
+        XCTAssertEqual(appLockSwitch.value as? String, "1")
+        appLockSwitch.tap()
+        XCTAssertEqual(appLockSwitch.value as? String, "0")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
     }
 
     private func launchDiary(
