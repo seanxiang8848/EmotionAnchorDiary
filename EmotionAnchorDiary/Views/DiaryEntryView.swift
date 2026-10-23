@@ -359,7 +359,7 @@ enum DiaryExportFormatter {
     }
 }
 
-private struct DiaryExportDocument: FileDocument {
+struct DiaryExportDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.plainText] }
     var text: String
 
@@ -376,8 +376,10 @@ private struct DiaryExportDocument: FileDocument {
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: Data(text.utf8))
+        FileWrapper(regularFileWithContents: serializedData)
     }
+
+    var serializedData: Data { Data(text.utf8) }
 }
 
 #Preview {

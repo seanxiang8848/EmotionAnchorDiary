@@ -115,6 +115,13 @@ final class CryptoManagerTests: XCTestCase {
         })
     }
 
+    func testDiaryExportDocumentWritesUTF8PlainText() throws {
+        let exportText = "心情：平静\n今天值得记下来。"
+        let document = DiaryExportDocument(text: exportText)
+
+        XCTAssertEqual(document.serializedData, Data(exportText.utf8))
+    }
+
     private func makeCryptoManager() -> CryptoManager {
         CryptoManager(testKey: SymmetricKey(size: .bits256))
     }
