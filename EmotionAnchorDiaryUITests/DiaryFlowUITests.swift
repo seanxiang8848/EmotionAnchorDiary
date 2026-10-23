@@ -116,6 +116,35 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["导出日记"].exists)
     }
 
+    func testConfirmingDeleteAllRemovesDiaryFromHistory() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app)
+
+        let note = "This diary should be removed after confirmation."
+        let editor = app.textViews["diary-entry-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText(note)
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
+
+        openSettings(in: app)
+        app.buttons["删除所有本地日记和目标…"].tap()
+        let deleteButton = app.buttons["删除全部数据"]
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 5))
+        deleteButton.tap()
+
+        let deletionNotice = app.alerts["本机日记、目标和 AI 密钥已删除。"]
+        XCTAssertTrue(deletionNotice.waitForExistence(timeout: 5))
+        deletionNotice.buttons["好"].tap()
+        app.navigationBars.buttons.firstMatch.tap()
+
+        app.buttons["查看历史条目"].tap()
+        XCTAssertTrue(app.staticTexts["暂无记录"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts[note].exists)
+    }
+
     func testExportSavedDiaryPresentsFilePicker() throws {
         let app = XCUIApplication()
         launchDiary(in: app)
