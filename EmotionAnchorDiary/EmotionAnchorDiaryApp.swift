@@ -9,6 +9,12 @@ struct EmotionAnchorDiaryApp: App {
     @StateObject private var diaryViewModel: DiaryEntryViewModel
 
     init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-app-lock") {
+            UserDefaults.standard.set(false, forKey: "requireAppUnlock")
+        }
+        #endif
+
         let context = PersistenceController.shared.container.viewContext
 
         #if DEBUG
@@ -92,7 +98,7 @@ private struct AppLockGate<Content: View>: View {
         #endif
     }
 
-    private var lockIsEnabled: Bool { requiresUnlock || isLockUITest }
+    private var lockIsEnabled: Bool { requiresUnlock }
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()

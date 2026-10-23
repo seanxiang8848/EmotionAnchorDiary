@@ -206,28 +206,18 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[transcript].waitForExistence(timeout: 10))
     }
 
-    func testAppLockHidesDiaryUntilUnlockedAndRelocksAfterBackgrounding() throws {
+    func testAppLockPreferenceControlsBackgroundLocking() throws {
         let app = XCUIApplication()
-        launchDiary(in: app, extraArguments: ["-ui-testing-app-lock"])
+        launchDiary(in: app, extraArguments: ["-ui-testing-app-lock", "-ui-testing-reset-app-lock"])
 
         let lockTitle = app.staticTexts["情绪锚点日记已锁定"]
         let unlockButton = app.buttons["使用 Face ID 或设备密码解锁"]
-        XCTAssertTrue(lockTitle.waitForExistence(timeout: 10))
-        XCTAssertTrue(unlockButton.exists)
-        XCTAssertFalse(app.staticTexts["今天的心情在哪儿？"].exists)
-        XCTAssertFalse(app.buttons["保存并生成共情"].exists)
-        XCTAssertFalse(app.textViews.firstMatch.exists)
-
-        unlockButton.tap()
-        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 10))
 
         openSettings(in: app)
         let appLockSwitch = app.switches["app-lock-toggle"]
         XCTAssertTrue(appLockSwitch.waitForExistence(timeout: 5))
-        if appLockSwitch.value as? String == "1" {
-            tapAppLockSwitch(appLockSwitch)
-            XCTAssertTrue(waitForSwitch(appLockSwitch, value: "0"))
-        }
+        XCTAssertTrue(waitForSwitch(appLockSwitch, value: "0"))
         tapAppLockSwitch(appLockSwitch)
         XCTAssertTrue(waitForSwitch(appLockSwitch, value: "1"))
         app.navigationBars.buttons.firstMatch.tap()
@@ -236,6 +226,7 @@ final class DiaryFlowUITests: XCTestCase {
         XCUIDevice.shared.press(.home)
         app.activate()
         XCTAssertTrue(lockTitle.waitForExistence(timeout: 10))
+        XCTAssertTrue(unlockButton.exists)
         XCTAssertFalse(app.buttons["保存并生成共情"].exists)
         XCTAssertFalse(app.textViews.firstMatch.exists)
 
@@ -248,6 +239,11 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(waitForSwitch(appLockSwitch, value: "0"))
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
+
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
+        XCTAssertFalse(lockTitle.exists)
     }
 
     private func launchDiary(
