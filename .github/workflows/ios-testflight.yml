@@ -2,12 +2,8 @@
 # 用法：仓库 → Actions → iOS TestFlight Upload → Run workflow
 # 成功后约 10-30 分钟可在 iPhone 的 TestFlight APP 里安装体验
 #
-# 需要在仓库 Settings → Secrets and variables → Actions 配置 4 个密钥：
-#   ASC_KEY_ID        App Store Connect API Key ID
-#   ASC_ISSUER_ID     App Store Connect Issuer ID
-#   ASC_KEY_P8_BASE64 AuthKey.p8 文件内容的 base64 编码
-#   DEVELOPMENT_TEAM  Apple 开发者 Team ID（10 位）
-# 详见仓库根目录 RELEASE_CHECKLIST.md 第一节
+# 需要 4 个 Secrets：ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8_BASE64 / DEVELOPMENT_TEAM
+# 详见 RELEASE_CHECKLIST.md 第一节
 
 name: iOS TestFlight Upload
 
@@ -17,6 +13,11 @@ on:
 jobs:
   build-upload:
     runs-on: macos-15
+
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
 
     steps:
       - name: 拉取项目代码
@@ -28,16 +29,24 @@ jobs:
       - name: 写入 App Store Connect API Key
         env:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
           set -e
           if [ -z "$ASC_KEY_P8_BASE64" ] || [ -z "$ASC_KEY_ID" ]; then
             echo "缺少 ASC_KEY_P8_BASE64 或 ASC_KEY_ID，请先在仓库 Secrets 中配置"
             exit 1
           fi
-          mkdir -p ~/private_keys
+          mkdir -p "$HOME/private_keys"
           echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "密钥文件首行：$(head -1 \"$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
+          echo "密钥文件字节数：$(wc -c < \"$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
+
+      - name: 校验 App Store Connect 凭据（诊断用）
+        run: |
+          xcrun altool --list-apps \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            || echo "⚠️ 凭据校验失败：请检查 Key ID / Issuer ID / p8 是否正确，密钥角色是否为 App 管理"
 
       - name: 生成 IPA 导出配置
         run: |
@@ -57,13 +66,10 @@ jobs:
           </dict>
           </plist>
           PLIST_HEAD
-          sed -i '' "s/TEAM_ID_PLACEHOLDER/${{ secrets.DEVELOPMENT_TEAM }}/" ExportOptions.plist
+          /usr/bin/sed -i '' "s/TEAM_ID_PLACEHOLDER/${{ secrets.DEVELOPMENT_TEAM }}/" ExportOptions.plist
+          cat ExportOptions.plist
 
       - name: 打包 Archive（自动签名）
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
         run: |
           xcodebuild archive \
             -project EmotionAnchorDiary.xcodeproj \
@@ -78,9 +84,6 @@ jobs:
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
 
       - name: 导出 IPA
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/EmotionAnchorDiary.xcarchive" \
@@ -93,9 +96,6 @@ jobs:
           ls -la "$RUNNER_TEMP/export"
 
       - name: 上传到 TestFlight
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcrun altool --upload-app --type ios \
             --file "$RUNNER_TEMP/export/EmotionAnchorDiary.ipa" \
