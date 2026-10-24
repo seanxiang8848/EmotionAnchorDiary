@@ -54,7 +54,8 @@ jobs:
           mkdir -p "$HOME/private_keys"
           echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
-          echo "密钥文件首行：$(head -1 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
+          echo "密钥文件首行："
+          head -1 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
 
       - name: 还原 APP 图标
         run: |
