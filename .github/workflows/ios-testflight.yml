@@ -7,6 +7,7 @@
 #
 # 签名策略：Archive 阶段不签名（开发签名会要求绑定设备，云端无设备），
 # 在 -exportArchive 阶段用 App Store Connect API Key 做自动发布签名。
+# 图标：ci-assets/AppIcon-1024.png.base64 在构建时还原为资源目录中的 PNG
 
 name: iOS TestFlight Upload
 
@@ -15,7 +16,7 @@ on:
 
 jobs:
   build-upload:
-    runs-on: macos-15
+    runs-on: macos-26
 
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -26,8 +27,12 @@ jobs:
       - name: 拉取项目代码
         uses: actions/checkout@v4
 
-      - name: 选择 Xcode 版本
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: 选择最新 Xcode（Apple 要求 iOS 26 SDK 才能上传）
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          echo "使用 Xcode: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
 
       - name: 写入 App Store Connect API Key
         env:
@@ -42,6 +47,13 @@ jobs:
           echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           echo "密钥文件首行：$(head -1 \"$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
+
+      - name: 还原 APP 图标
+        run: |
+          set -e
+          mkdir -p "EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset"
+          base64 -d ci-assets/AppIcon-1024.png.base64 > "EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
+          ls -la "EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset"
 
       - name: 校验 App Store Connect 凭据（诊断用）
         run: |

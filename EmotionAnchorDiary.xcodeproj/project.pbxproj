@@ -32,6 +32,7 @@
 		9A00000000000000000000DA /* CoreDataTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000DB /* CoreDataTestSupport.swift */; };
 		9A00000000000000000000DC /* GoalProgressCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000DD /* GoalProgressCalculator.swift */; };
 		9A00000000000000000000DE /* GoalProgressCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000DF /* GoalProgressCalculatorTests.swift */; };
+		9A00000000000000000000E1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9A00000000000000000000E0 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +83,7 @@
 		9A00000000000000000000DB /* CoreDataTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataTestSupport.swift; sourceTree = "<group>"; };
 		9A00000000000000000000DD /* GoalProgressCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalProgressCalculator.swift; sourceTree = "<group>"; };
 		9A00000000000000000000DF /* GoalProgressCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalProgressCalculatorTests.swift; sourceTree = "<group>"; };
+		9A00000000000000000000E0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +137,7 @@
 				9A0000000000000000000020 /* EmotionAnchorDiaryApp.swift */,
 				9A000000000000000000002C /* Info.plist */,
 				9A000000000000000000002D /* Secrets.plist.example */,
+				9A00000000000000000000E0 /* Assets.xcassets */,
 				9A000000000000000000001A /* Persistence */,
 				9A0000000000000000000012 /* Models */,
 				9A0000000000000000000018 /* ViewModels */,
@@ -378,6 +381,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9A00000000000000000000E1 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -579,6 +583,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST = NO;
@@ -602,6 +607,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST = NO;
