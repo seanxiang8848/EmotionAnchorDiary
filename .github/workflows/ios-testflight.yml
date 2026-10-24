@@ -60,9 +60,16 @@ jobs:
       - name: 还原 APP 图标
         run: |
           set -e
-          mkdir -p "EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset"
-          base64 -d ci-assets/AppIcon-1024.png.base64 > "EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
-          ls -la "EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset"
+          ICON_DIR="EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset"
+          mkdir -p "$ICON_DIR"
+          base64 -d -i "ci-assets/AppIcon-1024.png.base64" -o "$ICON_DIR/AppIcon-1024.png"
+          SZ=$(wc -c < "$ICON_DIR/AppIcon-1024.png")
+          echo "图标字节数：$SZ"
+          if [ "$SZ" -lt 1000 ]; then
+            echo "❌ 图标还原失败：解码后文件过小，请检查 ci-assets/AppIcon-1024.png.base64"
+            exit 1
+          fi
+          /usr/bin/sips -g pixelHeight "$ICON_DIR/AppIcon-1024.png" || true
 
       - name: 校验 App Store Connect 凭据（诊断用）
         run: |
