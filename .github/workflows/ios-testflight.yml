@@ -4,6 +4,9 @@
 #
 # 需要 4 个 Secrets：ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8_BASE64 / DEVELOPMENT_TEAM
 # 详见 RELEASE_CHECKLIST.md 第一节
+#
+# 签名策略：Archive 阶段不签名（开发签名会要求绑定设备，云端无设备），
+# 在 -exportArchive 阶段用 App Store Connect API Key 做自动发布签名。
 
 name: iOS TestFlight Upload
 
@@ -39,14 +42,13 @@ jobs:
           echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           echo "密钥文件首行：$(head -1 \"$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
-          echo "密钥文件字节数：$(wc -c < \"$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
 
       - name: 校验 App Store Connect 凭据（诊断用）
         run: |
           xcrun altool --list-apps \
             --apiKey "$ASC_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            || echo "⚠️ 凭据校验失败：请检查 Key ID / Issuer ID / p8 是否正确，密钥角色是否为 App 管理"
+            || echo "⚠️ 凭据校验失败：请检查 Key ID / Issuer ID / p8 是否正确"
 
       - name: 生成 IPA 导出配置
         run: |
@@ -63,13 +65,15 @@ jobs:
               <true/>
               <key>teamID</key>
               <string>TEAM_ID_PLACEHOLDER</string>
+              <key>destination</key>
+              <string>upload</string>
           </dict>
           </plist>
           PLIST_HEAD
           /usr/bin/sed -i '' "s/TEAM_ID_PLACEHOLDER/${{ secrets.DEVELOPMENT_TEAM }}/" ExportOptions.plist
           cat ExportOptions.plist
 
-      - name: 打包 Archive（发布签名，不需要绑定设备）
+      - name: 打包 Archive（不签名，签名交给导出阶段）
         run: |
           xcodebuild archive \
             -project EmotionAnchorDiary.xcodeproj \
@@ -77,17 +81,13 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/EmotionAnchorDiary.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-            CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
 
-      - name: 导出 IPA
+      - name: 导出并签名 IPA（自动发布签名）
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/EmotionAnchorDiary.xcarchive" \
