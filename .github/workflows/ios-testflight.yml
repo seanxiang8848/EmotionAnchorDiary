@@ -29,10 +29,18 @@ jobs:
 
       - name: 选择最新 Xcode（Apple 要求 iOS 26 SDK 才能上传）
         run: |
-          XCODE_PATH="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
-          echo "使用 Xcode: $XCODE_PATH"
-          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          set -e
+          echo "镜像中已安装的 Xcode："
+          ls -d /Applications/Xcode*.app 2>/dev/null || echo "  （未发现 /Applications/Xcode*.app）"
+          XCODE_PATH="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -n "$XCODE_PATH" ] && [ -d "$XCODE_PATH/Contents/Developer" ]; then
+            echo "切换到：$XCODE_PATH"
+            sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          else
+            echo "未找到版本化 Xcode，沿用默认：$(xcode-select -p)"
+          fi
           xcodebuild -version
+          echo "iPhoneOS SDK 版本：$(xcrun --sdk iphoneos --show-sdk-version)"
 
       - name: 写入 App Store Connect API Key
         env:
@@ -46,7 +54,7 @@ jobs:
           mkdir -p "$HOME/private_keys"
           echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
           chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
-          echo "密钥文件首行：$(head -1 \"$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
+          echo "密钥文件首行：$(head -1 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8\")"
 
       - name: 还原 APP 图标
         run: |
@@ -78,7 +86,7 @@ jobs:
               <key>teamID</key>
               <string>TEAM_ID_PLACEHOLDER</string>
               <key>destination</key>
-              <string>upload</string>
+              <string>export</string>
           </dict>
           </plist>
           PLIST_HEAD
@@ -99,8 +107,10 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
 
-      - name: 导出并签名 IPA（自动发布签名）
+      - name: 导出并签名 IPA（自动发布签名，仅导出不上传）
         run: |
+          set -e
+          rm -rf "$RUNNER_TEMP/export"
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/EmotionAnchorDiary.xcarchive" \
             -exportPath "$RUNNER_TEMP/export" \
