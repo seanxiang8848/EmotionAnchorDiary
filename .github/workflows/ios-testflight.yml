@@ -7,7 +7,8 @@
 #
 # 签名策略：Archive 阶段不签名（开发签名会要求绑定设备，云端无设备），
 # 在 -exportArchive 阶段用 App Store Connect API Key 做自动发布签名。
-# 图标：ci-assets/AppIcon-1024.png.base64 在构建时还原为资源目录中的 PNG
+# 图标：ci-assets/appicon/p01.b64 … p16.b64 共 16 个 base64 分片，
+#       构建时按顺序拼接后解码，还原为资源目录中的 1024×1024 PNG
 
 name: iOS TestFlight Upload
 
@@ -62,14 +63,27 @@ jobs:
           set -e
           ICON_DIR="EmotionAnchorDiary/Assets.xcassets/AppIcon.appiconset"
           mkdir -p "$ICON_DIR"
-          base64 -d -i "ci-assets/AppIcon-1024.png.base64" -o "$ICON_DIR/AppIcon-1024.png"
-          SZ=$(wc -c < "$ICON_DIR/AppIcon-1024.png")
+          ICON_B64="$RUNNER_TEMP/AppIcon-1024.png.base64"
+          : > "$ICON_B64"
+          # 文件名已补零，glob 展开顺序即 p01 → p16，直接顺序拼接
+          for p in ci-assets/appicon/p*.b64; do
+            cat "$p" >> "$ICON_B64"
+          done
+          echo "base64 字符数：$(wc -c < "$ICON_B64" | tr -d ' ')"
+          base64 -d -i "$ICON_B64" -o "$ICON_DIR/AppIcon-1024.png"
+          SZ=$(wc -c < "$ICON_DIR/AppIcon-1024.png" | tr -d ' ')
+          if command -v shasum >/dev/null 2>&1; then
+            SUM=$(shasum -a 256 "$ICON_DIR/AppIcon-1024.png" | awk '{print $1}')
+          else
+            SUM=$(openssl dgst -sha256 "$ICON_DIR/AppIcon-1024.png" | awk '{print $NF}')
+          fi
           echo "图标字节数：$SZ"
-          if [ "$SZ" -lt 1000 ]; then
-            echo "❌ 图标还原失败：解码后文件过小，请检查 ci-assets/AppIcon-1024.png.base64"
+          echo "图标 sha256：$SUM"
+          if [ "$SZ" -ne 16136 ] || [ "$SUM" != "f78663ff9eec11043d930a2ff8eb892dc366be63682f2c264815f178fa755285" ]; then
+            echo "❌ 图标还原失败：字节数或 sha256 不符，请检查 ci-assets/appicon/ 下的 16 个分片"
             exit 1
           fi
-          /usr/bin/sips -g pixelHeight "$ICON_DIR/AppIcon-1024.png" || true
+          /usr/bin/sips -g pixelWidth -g pixelHeight "$ICON_DIR/AppIcon-1024.png" || true
 
       - name: 校验 App Store Connect 凭据（诊断用）
         run: |
