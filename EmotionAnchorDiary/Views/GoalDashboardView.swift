@@ -133,7 +133,7 @@ private struct GoalEditorView: View {
                 if targetFrequency > newValue { targetFrequency = newValue }
             }
         }
-        .navigationTitle(goal == nil ? "新建目標" : "编辑目标")
+        .navigationTitle(goal == nil ? "新建目标" : "编辑目标")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -154,7 +154,12 @@ private struct GoalEditorView: View {
     }
 
     private func save() {
-        let keywords = keywordsText.components(separatedBy: ",")
+        // 支持中英文逗号、顿号、分号、空格分隔关键词
+        let separators = CharacterSet(charactersIn: ",，、;； 　")
+        let keywords = keywordsText
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         // 目标天数不能超过周期天数
         let target = max(1, min(targetFrequency, periodDays))
         do {

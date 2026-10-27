@@ -23,6 +23,17 @@ struct MoodTrendView: View {
         MoodOption.all.first { $0.tag == tag }
     }
 
+    /// 当前所选时间窗口的 X 轴范围 [窗口首日, 明天]。
+    /// 不显式设置的话，图表宽度只由已有数据决定：日记只有一两篇时，
+    /// 切 7 天 / 30 天看起来“日期范围没变化”（其实只是没有旧数据）。
+    private var xAxisDomain: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let start = calendar.date(byAdding: .day, value: -(selectedRange - 1), to: today) ?? today
+        let end = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        return start...end
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             Picker("时间范围", selection: $selectedRange) {
@@ -57,6 +68,7 @@ struct MoodTrendView: View {
                     )
                     .foregroundStyle(Color.orange)
                 }
+                .chartXScale(domain: xAxisDomain)
                 .chartYScale(domain: 1...5)
                 .chartYAxis {
                     AxisMarks(values: [1, 2, 3, 4, 5]) { value in

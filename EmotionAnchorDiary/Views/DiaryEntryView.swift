@@ -41,7 +41,9 @@ struct DiaryEntryView: View {
                 .font(.subheadline)
 
                 TextEditor(text: $viewModel.journalText)
-                    .frame(height: 200)
+                    // minHeight + maxHeight：固定 height 的 TextEditor 在 ScrollView 里
+                    // 有已知渲染缺陷（输入到中途光标前的内容“消失”，滚动后才复现）
+                    .frame(minHeight: 160, maxHeight: 320)
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2)))
                     .focused($isJournalFocused)
                     .accessibilityIdentifier("diary-entry-editor")
@@ -74,23 +76,16 @@ struct DiaryEntryView: View {
                         }
 
                         if viewModel.isRecording {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("录音中：\(Int(viewModel.recordingDuration))s")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                HStack(spacing: 4) {
-                                    ForEach(Array(viewModel.waveformSamples.enumerated()), id: \.offset) { _, sample in
-                                        RoundedRectangle(cornerRadius: 2)
-                                            .fill(Color.orange.opacity(0.7))
-                                            .frame(width: 4, height: CGFloat(20 + sample * 40))
-                                    }
-                                }
-                                .frame(height: 40)
-                            }
+                            // 计时与波形由子视图自持：每秒重渲染只发生在这个小组件里，
+                            // 不会触发整页（含 TextEditor）重算
+                            RecordingIndicatorView()
                         }
                     }
 
-                    Button(action: viewModel.handleSubmit) {
+                    Button(action: {
+                        isJournalFocused = false
+                        viewModel.handleSubmit()
+                    }) {
                         if viewModel.isProcessing {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -149,6 +144,7 @@ struct DiaryEntryView: View {
                 }
                 .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("情绪锚点")
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -166,6 +162,38 @@ struct DiaryEntryView: View {
         .sheet(isPresented: $showSavedEntries) {
             EntryListView()
                 .environment(\.managedObjectContext, viewModel.viewContext)
+        }
+    }
+}
+
+/// 录音中的计时 + 波形指示。
+///
+/// 每秒刷新只发生在这个子视图内部（自持 Timer 与状态），
+/// 不再通过 ViewModel 的 @Published 触发整页重渲染——
+/// 否则手动输入日记时每秒钟页面重算会让 TextEditor 的光标/内容显示异常。
+private struct RecordingIndicatorView: View {
+    @State private var elapsedSeconds: Int = 0
+    @State private var samples: [Double] = Array(repeating: 0.3, count: 12)
+
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("录音中：\(elapsedSeconds)s")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            HStack(spacing: 4) {
+                ForEach(Array(samples.enumerated()), id: \.offset) { _, sample in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.orange.opacity(0.7))
+                        .frame(width: 4, height: CGFloat(20 + sample * 40))
+                }
+            }
+            .frame(height: 40)
+        }
+        .onReceive(timer) { _ in
+            elapsedSeconds += 1
+            samples = (0..<12).map { _ in Double.random(in: 0.2...0.9) }
         }
     }
 }

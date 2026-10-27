@@ -32,8 +32,6 @@ final class DiaryEntryViewModel: ObservableObject {
     @Published var matchedGoals: [Goal] = []
     @Published var goalSnapshots: [GoalProgressSnapshot] = []
     @Published var isRecording: Bool = false
-    @Published var recordingDuration: TimeInterval = 0
-    @Published var waveformSamples: [Double] = []
 
     private let context: NSManagedObjectContext
     private let persistence: PersistenceController
@@ -57,7 +55,6 @@ final class DiaryEntryViewModel: ObservableObject {
         self.emotionService = emotionService
         self.speechService = speechService ?? SpeechService()
         bindSpeechTranscript()
-        waveformSamples = Array(repeating: 0.3, count: 12)
     }
 
     func handleSubmit() {
@@ -71,7 +68,6 @@ final class DiaryEntryViewModel: ObservableObject {
             if isRecording {
                 speechService.stopRecording()
             } else {
-                recordingDuration = 0
                 await speechService.requestAuthorization()
                 guard speechService.authorizationStatus == .authorized else {
                     isRecording = false
@@ -82,8 +78,6 @@ final class DiaryEntryViewModel: ObservableObject {
 
                 do {
                     try speechService.startRecording()
-                    waveformSamples = randomWaveform()
-                    scheduleRecordingTimer()
                 } catch {
                     isRecording = false
                     feedbackBanner = .init(message: "语音启用失败，请检查权限", isError: true)
@@ -92,24 +86,6 @@ final class DiaryEntryViewModel: ObservableObject {
             }
             isRecording = speechService.isRecording
         }
-    }
-
-    private func scheduleRecordingTimer() {
-        Task { [weak self] in
-            while let self, self.isRecording {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                await MainActor.run {
-                    if self.isRecording {
-                        self.recordingDuration += 1
-                        self.waveformSamples = self.randomWaveform()
-                    }
-                }
-            }
-        }
-    }
-
-    private func randomWaveform() -> [Double] {
-        (0..<12).map { _ in Double.random(in: 0.2...0.9) }
     }
 
     private func bindSpeechTranscript() {
