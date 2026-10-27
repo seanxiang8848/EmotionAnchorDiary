@@ -91,8 +91,10 @@ final class SpeechService: NSObject, ObservableObject {
             }
 
             if error != nil || result?.isFinal == true {
-                recognitionTask = nil
-                recognitionRequest = nil
+                // 注意必须写 self.：上面的 guard let recognitionRequest 创建了
+                // 同名局部常量遮蔽了实例属性，不写 self. 会赋到 let 上导致编译错误。
+                self.recognitionTask = nil
+                self.recognitionRequest = nil
             }
         }
     }
