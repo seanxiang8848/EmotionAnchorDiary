@@ -27,11 +27,25 @@ jobs:
 
       - name: 编译 App（跳过签名，验证代码能否通过编译）
         run: |
+          set -o pipefail
+          set +e
           xcodebuild build \
             -project EmotionAnchorDiary.xcodeproj \
             -scheme EmotionAnchorDiary \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/build.log"
+          BUILD_STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$BUILD_STATUS" -ne 0 ]; then
+            {
+              echo "## 编译失败 · 错误摘要"
+              echo ""
+              echo '```'
+              grep -E "error:" "$RUNNER_TEMP/build.log" | head -30
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$BUILD_STATUS"
 
       - name: 运行单元与界面测试（加密和隐私设置）
         run: |
