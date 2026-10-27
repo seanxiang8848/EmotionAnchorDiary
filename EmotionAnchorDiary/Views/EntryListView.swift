@@ -27,26 +27,28 @@ struct EntryListView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(entries, id: \.objectID) { entry in
-                        NavigationLink(destination: EntryDetailView(entry: entry)) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(entry.createdAt ?? Date(), style: .date)
-                                    .font(.headline)
-                                if let decrypted = decryptedText(for: entry) {
-                                    Text(decrypted)
-                                        .font(.body)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(3)
-                                } else {
-                                    Text("解密失败或无内容")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
+                    List {
+                        ForEach(entries, id: \.objectID) { entry in
+                            NavigationLink(destination: EntryDetailView(entry: entry)) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(entry.createdAt ?? Date(), style: .date)
+                                        .font(.headline)
+                                    if let decrypted = decryptedText(for: entry) {
+                                        Text(decrypted)
+                                            .font(.body)
+                                            .foregroundColor(.primary)
+                                            .lineLimit(3)
+                                    } else {
+                                        Text("解密失败或无内容")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
+                                .padding(.vertical, 4)
                             }
-                            .padding(.vertical, 4)
                         }
+                        .onDelete(perform: deleteEntries)
                     }
-                    .onDelete(perform: deleteEntries)
                     .listStyle(.insetGrouped)
                 }
             }
