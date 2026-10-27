@@ -121,11 +121,13 @@ private struct EntryDetailView: View {
         .navigationTitle("日记全文")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .destructiveAction) {
-                Button(role: .destructive) {
+            // 注意：deployment target 是 iOS 16，不能用 iOS 17 才有的 .destructiveAction placement
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
                     showDeleteConfirm = true
                 } label: {
                     Image(systemName: "trash")
+                        .foregroundColor(.red)
                 }
                 .accessibilityLabel("删除这篇日记")
             }
