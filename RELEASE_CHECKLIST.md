@@ -27,7 +27,12 @@
 
 ### 每次发包
 - [ ] 6. 仓库 → Actions → 「iOS TestFlight Upload」→ Run workflow
-- [ ] 7. 等 10-30 分钟 Apple 处理 → App Store Connect → TestFlight → 把自己加为内部测试员
+  - 注意：**不要点 Re-run**（Re-run 沿用同一 run_number，build number 重复会被 Apple 拒收）
+  - 可填参数：`beta_group`（留空=自动选内部组）、`wait_minutes`（默认 40）
+- [ ] 7. 流水线自动：打包 → 上传 → 轮询等 Apple 处理 → **自动把构建加入测试组**
+  - 完成后手机 TestFlight 直接出现「更新」，**无需再去网页手动分发**
+  - 若该 App 尚无测试组，流水线会提示先在 App Store Connect 建组
+  - 若 40 分钟仍未处理完，会提示手工补一步
 - [ ] 8. iPhone 上安装 TestFlight APP → 接受邀请 → 安装体验
 
 ### 真机验证清单（装上后逐项过）

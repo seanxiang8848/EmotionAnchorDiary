@@ -1,6 +1,10 @@
 # TestFlight 真机体验流水线（手动触发）
 # 用法：仓库 → Actions → iOS TestFlight Upload → Run workflow
-# 成功后约 10-30 分钟可在 iPhone 的 TestFlight APP 里安装体验
+# 流水线会自动: 打包 → 上传 → 等 Apple 处理完 → 把构建加入测试组
+# 处理完成后手机 TestFlight 直接出现「更新」，无需去网页手动分发
+#
+# 注意: 请不要用 Re-run 重跑失败的运行（Re-run 沿用同一 run_number，
+#       会导致 build number 重复而被 Apple 拒收）。要点右上角的 Run workflow 新建一次。
 #
 # 需要 4 个 Secrets：ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8_BASE64 / DEVELOPMENT_TEAM
 # 详见 RELEASE_CHECKLIST.md 第一节
@@ -14,6 +18,15 @@ name: iOS TestFlight Upload
 
 on:
   workflow_dispatch:
+    inputs:
+      beta_group:
+        description: '测试组名称（留空=自动选内部组）'
+        required: false
+        default: ''
+      wait_minutes:
+        description: '等待 Apple 处理的最长分钟数'
+        required: false
+        default: '40'
 
 jobs:
   build-upload:
@@ -149,4 +162,18 @@ jobs:
             --file "$RUNNER_TEMP/export/EmotionAnchorDiary.ipa" \
             --apiKey "$ASC_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID"
-          echo "上传完成，等待 Apple 处理（约 10-30 分钟）后在 TestFlight 可见"
+          echo "上传完成，等待 Apple 处理"
+
+      - name: 自动把构建加入测试组（免手动分发）
+        env:
+          ASC_KEY_PATH: ${{ runner.home }}/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          ASC_BUNDLE_ID: com.emotionanchor.diary
+          ASC_MARKETING_VERSION: 1.0
+          ASC_BETA_GROUP: ${{ github.event.inputs.beta_group }}
+          ASC_WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
+        run: |
+          if command -v ruby >/dev/null 2>&1; then
+            ruby .github/scripts/asc_auto_distribute.rb
+          else
+            echo "未检测到 ruby，跳过自动分发。请手动在 App Store Connect -> TestFlight 把构建加入测试组。"
+          fi
