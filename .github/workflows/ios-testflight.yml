@@ -166,12 +166,18 @@ jobs:
 
       - name: 自动把构建加入测试组（免手动分发）
         env:
-          ASC_KEY_PATH: ${{ runner.home }}/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
           ASC_BUNDLE_ID: com.emotionanchor.diary
           ASC_MARKETING_VERSION: 1.0
           ASC_BETA_GROUP: ${{ github.event.inputs.beta_group }}
           ASC_WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
         run: |
+          # 密钥路径必须在 shell 里展开：GitHub Actions 没有 runner.home 这个上下文，
+          # 直接写在 env 里会变成 /private_keys/... 而找不到文件。
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          if [ ! -f "$ASC_KEY_PATH" ]; then
+            echo "未找到 API Key 文件：$ASC_KEY_PATH"
+            exit 1
+          fi
           if command -v ruby >/dev/null 2>&1; then
             ruby .github/scripts/asc_auto_distribute.rb
           else
