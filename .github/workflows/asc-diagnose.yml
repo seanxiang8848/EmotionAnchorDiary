@@ -1,0 +1,34 @@
+# TestFlight 分发诊断（只读，手动触发）
+# 用途：上传成功但手机 TestFlight 看不到新版本时，打印 App / 测试组 / 构建归属 / 测试员
+# 不打包、不上传、不改任何数据，约 30 秒跑完
+
+name: ASC Diagnose (read-only)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: macos-26
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 写入 App Store Connect API Key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -e
+          mkdir -p "$HOME/private_keys"
+          echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+
+      - name: 打印 App / 测试组 / 构建状态
+        env:
+          ASC_BUNDLE_ID: com.emotionanchor.diary
+        run: |
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          ruby .github/scripts/asc_diagnose.rb
