@@ -19,6 +19,10 @@ on:
         description: '等待 Apple 处理的最长分钟数'
         required: false
         default: '15'
+      submit_review:
+        description: '提交 Beta 审核（外部测试员需要，填 true）'
+        required: false
+        default: 'false'
 
 jobs:
   distribute:
@@ -49,3 +53,12 @@ jobs:
         run: |
           export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
           ruby .github/scripts/asc_auto_distribute.rb
+
+      - name: 提交 Beta 审核
+        if: ${{ github.event.inputs.submit_review == 'true' }}
+        env:
+          ASC_BUNDLE_ID: com.emotionanchor.diary
+          ASC_BUILD_NUMBER: ${{ github.event.inputs.build_number }}
+        run: |
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          ruby .github/scripts/asc_submit_review.rb
