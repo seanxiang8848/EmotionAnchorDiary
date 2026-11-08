@@ -75,8 +75,8 @@ else
 end
 
 puts "\n=== 3. 最近构建及所属测试组 ==="
-# builds 接口不允许 sort 与 include 同时出现，改为取回后本地排序
-code, body = get("/v1/apps/#{app_id}/builds?limit=10&include=betaGroups,buildBetaDetail")
+# apps/{id}/builds 不允许 include/sort，改用 builds 集合 + filter[app]
+code, body = get("/v1/builds?filter%5Bapp%5D=#{app_id}&limit=10&sort=-uploadedDate&include=betaGroups,buildBetaDetail")
 if code == 200
   json = JSON.parse(body)
   included = (json['included'] || []).each_with_object({}) { |i, h| h[i['id']] = i }
