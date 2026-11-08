@@ -218,3 +218,24 @@ else
   log "加入测试组失败: HTTP #{code}\n#{body[0, 800]}"
   exit 1
 end
+
+# 内部组只接受 App Store Connect 团队成员；账号里的测试员若是邮箱邀请的外部
+# 测试员，Apple 会拒绝（409 Tester(s) cannot be assigned）。这时把构建直接
+# 指派给个人测试员，手机 TestFlight 同样能收到（外部测试首次需 Beta 审核）。
+code, body = asc(:get, '/v1/betaTesters?limit=200', token)
+if code == 200
+  tester_ids = (JSON.parse(body)['data'] || []).map { |t| t['id'] }
+  if tester_ids.empty?
+    log '账号下没有测试员，跳过个人指派'
+  else
+    c, b = asc(:post, "/v1/builds/#{build['id']}/relationships/individualTesters", token,
+               { 'data' => tester_ids.map { |i| { 'type' => 'betaTesters', 'id' => i } } })
+    if c >= 200 && c < 300
+      log "已把 #{tester_ids.size} 位测试员指派到构建 #{build.dig('attributes', 'version')}（外部测试需 Beta 审核通过才可安装）"
+    elsif c == 409
+      log '测试员此前已指派到该构建，无需重复'
+    else
+      log "指派个人测试员失败: HTTP #{c} #{b[0, 300]}"
+    end
+  end
+end

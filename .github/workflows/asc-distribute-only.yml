@@ -1,0 +1,51 @@
+# 只做分发，不重新打包（手动触发）
+# 用途：构建已经上传但没进测试组/没指派测试员时，补一次分发，约 1 分钟
+# 参数：build_number 留空 = 该 App 最新构建
+
+name: ASC Distribute (no rebuild)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: '要分发的构建号（留空=最新）'
+        required: false
+        default: ''
+      beta_group:
+        description: '测试组名称（留空=内部组）'
+        required: false
+        default: ''
+      wait_minutes:
+        description: '等待 Apple 处理的最长分钟数'
+        required: false
+        default: '15'
+
+jobs:
+  distribute:
+    runs-on: macos-26
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 写入 App Store Connect API Key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -e
+          mkdir -p "$HOME/private_keys"
+          echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+
+      - name: 分发到测试组
+        env:
+          ASC_BUNDLE_ID: com.emotionanchor.diary
+          ASC_MARKETING_VERSION: 1.0
+          ASC_BUILD_NUMBER: ${{ github.event.inputs.build_number }}
+          ASC_BETA_GROUP: ${{ github.event.inputs.beta_group }}
+          ASC_WAIT_MINUTES: ${{ github.event.inputs.wait_minutes }}
+        run: |
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          ruby .github/scripts/asc_auto_distribute.rb
