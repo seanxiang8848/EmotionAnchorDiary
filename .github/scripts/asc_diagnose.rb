@@ -75,15 +75,21 @@ else
 end
 
 puts "\n=== 3. 最近构建及所属测试组 ==="
-code, body = get("/v1/apps/#{app_id}/builds?limit=8&sort=-uploadedDate&include=betaGroups")
+# builds 接口不允许 sort 与 include 同时出现，改为取回后本地排序
+code, body = get("/v1/apps/#{app_id}/builds?limit=10&include=betaGroups,buildBetaDetail")
 if code == 200
   json = JSON.parse(body)
   included = (json['included'] || []).each_with_object({}) { |i, h| h[i['id']] = i }
-  (json['data'] || []).each do |b|
+  builds = (json['data'] || []).sort_by { |b| b.dig('attributes', 'uploadedDate').to_s }.reverse
+  builds.each do |b|
     a = b['attributes']
     ids = (b.dig('relationships', 'betaGroups', 'data') || []).map { |x| x['id'] }
     names = ids.map { |i| included.dig(i, 'attributes', 'name') || i }
+    detail_id = b.dig('relationships', 'buildBetaDetail', 'data', 'id')
+    external_state = included.dig(detail_id, 'attributes', 'externalBuildState')
+    internal_state = included.dig(detail_id, 'attributes', 'internalBuildState')
     puts "  build #{a['buildNumber']} (v#{a['version']}) | #{a['processingState']} | 上传 #{a['uploadedDate']} | 过期=#{a['expired']}"
+    puts "      内部状态=#{internal_state || '?'} 外部状态=#{external_state || '?'}"
     puts "      测试组: #{names.empty? ? '（未加入任何组）' : names.join('、')}"
   end
 else
