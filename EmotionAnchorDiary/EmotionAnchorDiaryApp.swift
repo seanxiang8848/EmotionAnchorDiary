@@ -31,14 +31,10 @@ struct EmotionAnchorDiaryApp: App {
         #endif
 
         // Endpoint settings are public configuration; the user-provided key stays in Keychain.
-        let emotionService = EmotionCoachService(
-            endpointProvider: {
-                #if DEBUG
-                if useUITestAIRequestMock {
-                    return URL(string: "https://ai.example.test/empathy")
-                }
-                #endif
-                return APIConfig.load()?.endpoint
+        let aiService = DiaryAIService(
+            configProvider: {
+                // 没配置过时用 DeepSeek 默认地址，用户只要填 Key 就能用。
+                APIConfig.load() ?? APIConfig.fallback
             },
             apiKeyProvider: {
                 #if DEBUG
@@ -49,21 +45,19 @@ struct EmotionAnchorDiaryApp: App {
             },
             sendRequest: { request in
                 #if DEBUG
-                if useUITestAIRequestMock,
-                   let url = request.url,
-                   let response = HTTPURLResponse(
-                    url: url,
-                    statusCode: useUITestAIFailure ? 503 : 200,
-                    httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json"]
-                   ) {
-                    if useUITestAIFailure {
+                if useUITestAIRequestMock, let url = request.url {
+                    if useUITestAIFailure,
+                       let response = HTTPURLResponse(
+                        url: url,
+                        statusCode: 503,
+                        httpVersion: nil,
+                        headerFields: nil
+                       ) {
                         return (Data("{}".utf8), response)
                     }
-                    let data = Data("""
-                    {"mood":"被倾听","empathy":"谢谢你写下这些感受。","suggestions":["做三次深呼吸"]}
-                    """.utf8)
-                    return (data, response)
+                    if let mock = EmotionAnchorDiaryApp.uiTestAIResponse(for: url) {
+                        return mock
+                    }
                 }
                 #endif
 
@@ -71,8 +65,43 @@ struct EmotionAnchorDiaryApp: App {
             }
         )
         _diaryViewModel = StateObject(
-            wrappedValue: DiaryEntryViewModel(context: context, emotionService: emotionService)
+            wrappedValue: DiaryEntryViewModel(context: context, aiService: aiService)
         )
+    }
+
+    /// UI 测试用的假 AI 响应：结构必须与真实 `/chat/completions` 一致，
+    /// 否则测的就不是真实解析链路了。
+    private static func uiTestAIResponse(for url: URL) -> (Data, HTTPURLResponse)? {
+        guard let response = HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"]
+        ) else { return nil }
+
+        let emotion: [String: Any] = [
+            "label": "平静",
+            "score": 3.4,
+            "intensity": 0.5,
+            "reason": "写下之后情绪慢慢平复"
+        ]
+        let analysis: [String: Any] = [
+            "emotion": emotion,
+            "empathy": "谢谢你写下这些感受。",
+            "suggestions": ["做三次深呼吸", "记录此刻的身体感受"],
+            "goal_matches": [Any](),
+            "goal_updates": [Any](),
+            "new_goals": [Any]()
+        ]
+        let content = (try? JSONSerialization.data(withJSONObject: analysis))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+        let choice: [String: Any] = [
+            "message": ["role": "assistant", "content": content],
+            "finish_reason": "stop"
+        ]
+        let envelope: [String: Any] = ["choices": [choice]]
+        guard let data = try? JSONSerialization.data(withJSONObject: envelope) else { return nil }
+        return (data, response)
     }
 
     /// 首次启动时显示引导页（P2-12）。
@@ -123,7 +152,7 @@ private struct OnboardingView: View {
                 Section {
                     Label("日记只保存在这台设备上，正文加密存储", systemImage: "lock.shield")
                     Label("云端 AI 分析默认关闭；开启后也只发送摘要，不发送全文", systemImage: "icloud.slash")
-                    Label("AI 服务地址与密钥在“设置”里配置，密钥保存在系统钥匙串", systemImage: "key")
+                    Label("内置 DeepSeek / OpenAI 直连，密钥在“设置”里填，保存在系统钥匙串", systemImage: "key")
                     Label("语音转文字在本机完成，需要麦克风与语音识别权限", systemImage: "mic")
                     Label("可随时导出日记；“删除全部数据”会同时清除密钥，不可恢复", systemImage: "square.and.arrow.up")
                 } header: {

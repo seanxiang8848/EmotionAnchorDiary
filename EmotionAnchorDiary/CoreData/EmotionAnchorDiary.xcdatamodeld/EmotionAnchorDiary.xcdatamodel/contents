@@ -6,6 +6,8 @@
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="moodTag" optional="YES" attributeType="String"/>
         <attribute name="aiSummary" optional="YES" attributeType="String"/>
+        <attribute name="aiAnalysisJSON" optional="YES" attributeType="String"/>
+        <attribute name="aiAnalyzedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="encryptedBody" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
         <relationship name="goals" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Goal" inverseName="entries" inverseEntity="Goal"/>
     </entity>

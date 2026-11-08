@@ -304,4 +304,156 @@ final class GoalManagerTests: XCTestCase {
 
         XCTAssertEqual(completedDays(of: goal), 1)
     }
+
+    // MARK: - AI 结果落地
+
+    private func makeAnalysis(
+        matches: [AIGoalMatch] = [],
+        updates: [AIGoalUpdate] = [],
+        newGoals: [AINewGoal] = []
+    ) -> DiaryAnalysis {
+        DiaryAnalysis(
+            emotion: AIEmotion(label: "平静", score: 3, intensity: 0.5, reason: ""),
+            empathy: "谢谢你写下这些。",
+            suggestions: [],
+            goalMatches: matches,
+            goalUpdates: updates,
+            newGoals: newGoals
+        )
+    }
+
+    /// AI 用语义匹配挂接目标，并把日记里的新说法补进关键词
+    func testApplyAnalysisLinksMatchedGoalAndAddsKeywords() throws {
+        let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3, periodDays: 7)
+        let entry = try CoreDataTestSupport.makeEntry(
+            in: context,
+            text: "今天走路去上班，来回四十分钟",
+            createdAt: date(days: 0)
+        )
+        let id = try XCTUnwrap(goal.id)
+
+        let result = try manager.apply(makeAnalysis(
+            matches: [AIGoalMatch(goalID: id, confidence: 0.9, evidence: "走路去上班")],
+            updates: [AIGoalUpdate(
+                goalID: id,
+                addKeywords: ["走路", "通勤走路"],
+                periodDays: nil,
+                targetDays: nil,
+                confidence: 0.8,
+                reason: "换了说法"
+            )]
+        ), to: entry)
+
+        XCTAssertEqual(result.goals.count, 1)
+        XCTAssertEqual(goal.keywordList, ["散步", "走路", "通勤走路"])
+        XCTAssertTrue((entry.goals as? Set<Goal>)?.contains(goal) ?? false)
+        XCTAssertEqual(result.notes[id.uuidString]?.count, 2)
+        XCTAssertEqual(completedDays(of: goal), 1)
+    }
+
+    /// 明确承诺的新目标会自动建出来，并立刻计为当天完成
+    func testApplyAnalysisCreatesNewGoalFromCommitment() throws {
+        let entry = try CoreDataTestSupport.makeEntry(
+            in: context,
+            text: "决定从明天开始每天跑步",
+            createdAt: date(days: 0)
+        )
+
+        let result = try manager.apply(makeAnalysis(newGoals: [
+            AINewGoal(
+                title: "每天跑步",
+                keywords: ["跑步", "晨跑"],
+                periodDays: 7,
+                targetDays: 3,
+                confidence: 0.85,
+                reason: "明确承诺"
+            )
+        ]), to: entry)
+
+        let goals = try manager.fetchGoals()
+        XCTAssertEqual(goals.count, 1)
+        let created = try XCTUnwrap(goals.first)
+        XCTAssertEqual(created.title, "每天跑步")
+        XCTAssertEqual(Set(created.keywordList), Set(["跑步", "晨跑"]))
+        XCTAssertEqual(created.effectivePeriodDays, 7)
+        XCTAssertEqual(created.effectiveTargetDays, 3)
+        XCTAssertEqual(result.goals.first?.title, "每天跑步")
+        XCTAssertEqual(completedDays(of: created), 1)
+    }
+
+    /// 与已有目标重复时只并入，不重复建目标
+    func testApplyAnalysisMergesDuplicateNewGoal() throws {
+        let goal = try manager.createGoal(title: "每天散步", keywords: ["散步", "遛弯"], targetFrequency: 3, periodDays: 7)
+        let entry = try CoreDataTestSupport.makeEntry(
+            in: context,
+            text: "今天又去散步了",
+            createdAt: date(days: 0)
+        )
+
+        _ = try manager.apply(makeAnalysis(newGoals: [
+            AINewGoal(
+                title: "坚持散步",
+                keywords: ["散步", "遛弯"],
+                periodDays: 7,
+                targetDays: 3,
+                confidence: 0.9,
+                reason: "重复"
+            )
+        ]), to: entry)
+
+        XCTAssertEqual(try manager.fetchGoals().count, 1)
+        XCTAssertTrue((entry.goals as? Set<Goal>)?.contains(goal) ?? false)
+    }
+
+    /// 目标天数超过周期时会被夹到周期内，避免非法目标
+    func testApplyAnalysisClampsCadence() throws {
+        let goal = try manager.createGoal(title: "跑步", keywords: ["跑步"], targetFrequency: 5, periodDays: 7)
+        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天跑了三公里", createdAt: date(days: 0))
+        let id = try XCTUnwrap(goal.id)
+
+        _ = try manager.apply(makeAnalysis(updates: [
+            AIGoalUpdate(
+                goalID: id,
+                addKeywords: [],
+                periodDays: 4,
+                targetDays: 9,
+                confidence: 0.9,
+                reason: "改成四天窗口"
+            )
+        ]), to: entry)
+
+        XCTAssertEqual(goal.effectivePeriodDays, 4)
+        XCTAssertEqual(goal.effectiveTargetDays, 4)
+    }
+
+    /// 未知目标 ID、低置信度的动作一律忽略
+    func testApplyAnalysisIgnoresUnknownGoalsAndLowConfidence() throws {
+        let goal = try manager.createGoal(title: "每天散步", keywords: ["散步"], targetFrequency: 3, periodDays: 7)
+        let entry = try CoreDataTestSupport.makeEntry(in: context, text: "今天没出门", createdAt: date(days: 0))
+        let id = try XCTUnwrap(goal.id)
+
+        let result = try manager.apply(makeAnalysis(
+            matches: [AIGoalMatch(goalID: UUID(), confidence: 0.9, evidence: "不存在")],
+            updates: [AIGoalUpdate(
+                goalID: id,
+                addKeywords: ["走路"],
+                periodDays: 30,
+                targetDays: 30,
+                confidence: 0.3,
+                reason: "低置信"
+            )],
+            newGoals: [AINewGoal(
+                title: "学吉他",
+                keywords: ["吉他"],
+                periodDays: 7,
+                targetDays: 3,
+                confidence: 0.4,
+                reason: "低置信"
+            )]
+        ), to: entry)
+
+        XCTAssertTrue(result.goals.isEmpty)
+        XCTAssertEqual(goal.keywordList, ["散步"])
+        XCTAssertEqual(try manager.fetchGoals().count, 1)
+    }
 }

@@ -12,6 +12,8 @@ final class DiaryEntryViewModel: ObservableObject {
     struct GoalProgressSnapshot: Identifiable {
         let id: UUID
         let title: String
+        /// AI 本次对该目标做了什么（关联 / 补关键词 / 改节奏 / 新建）。
+        let note: String?
         /// 周期内已完成的天数（同一天写多篇只算一天）。
         let completedDays: Int
         /// 周期内需要完成的天数。
@@ -23,22 +25,47 @@ final class DiaryEntryViewModel: ObservableObject {
         }
     }
 
+    /// 这一次结果是云端 AI 给的，还是本地兜底文案。
+    enum AnalysisSource: Equatable {
+        case cloud(provider: String, model: String, characters: Int)
+        case local(reason: String?)
+
+        var badge: String {
+            switch self {
+            case let .cloud(provider, model, characters):
+                return "\(provider) · \(model) · 摘要 \(characters) 字"
+            case .local:
+                return "本地文案"
+            }
+        }
+
+        var failureReason: String? {
+            if case let .local(reason) = self { return reason }
+            return nil
+        }
+
+        var isCloud: Bool {
+            if case .cloud = self { return true }
+            return false
+        }
+    }
+
     @Published var journalText: String = ""
     @Published var selectedMoodTag: String = "平静"
     @Published var isProcessing: Bool = false
-    @Published var alertMessage: String? = nil
     @Published var feedbackBanner: FeedbackBanner? = nil
-    @Published var empathyCard: EmpathyCard? = nil
-    @Published var matchedGoals: [Goal] = []
+    @Published var analysis: DiaryAnalysis? = nil
+    @Published var analysisSource: AnalysisSource = .local(reason: nil)
     @Published var goalSnapshots: [GoalProgressSnapshot] = []
     @Published var isRecording: Bool = false
+    @Published var isAIReady: Bool = false
 
     private let context: NSManagedObjectContext
     private let persistence: PersistenceController
     private let goalManager: GoalManager
-    private let emotionService: EmotionCoachService?
+    private let aiService: DiaryAIService?
     private let speechService: SpeechService
-    private let bannerDismissDelay: TimeInterval = 2.5
+    private let bannerDismissDelay: TimeInterval = 3
 
     var viewContext: NSManagedObjectContext { context }
 
@@ -46,14 +73,15 @@ final class DiaryEntryViewModel: ObservableObject {
         context: NSManagedObjectContext,
         persistence: PersistenceController = .shared,
         goalManager: GoalManager? = nil,
-        emotionService: EmotionCoachService? = nil,
+        aiService: DiaryAIService? = nil,
         speechService: SpeechService? = nil
     ) {
         self.context = context
         self.persistence = persistence
         self.goalManager = goalManager ?? GoalManager(context: context)
-        self.emotionService = emotionService
+        self.aiService = aiService
         self.speechService = speechService ?? SpeechService()
+        self.isAIReady = aiService?.hasAPIKey ?? false
         bindSpeechTranscript()
     }
 
@@ -61,6 +89,16 @@ final class DiaryEntryViewModel: ObservableObject {
         Task {
             await submitEntry()
         }
+    }
+
+    func refreshAIStatus() {
+        isAIReady = aiService?.hasAPIKey ?? false
+    }
+
+    /// 设置页「保存并测试连接」用。
+    func testAIConnection() async throws -> String {
+        guard let service = aiService else { throw AIServiceError.notConfigured }
+        return try await service.testConnection()
     }
 
     func toggleRecording() {
@@ -102,6 +140,8 @@ final class DiaryEntryViewModel: ObservableObject {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    // MARK: - 保存并分析
+
     func submitEntry() async {
         let cleanText = sanitizeText(journalText)
         guard !cleanText.isEmpty else {
@@ -109,45 +149,32 @@ final class DiaryEntryViewModel: ObservableObject {
             autoDismissBanner()
             return
         }
+        guard !isProcessing else { return }
 
         isProcessing = true
+        analysis = nil
+        goalSnapshots = []
         defer { isProcessing = false }
 
         do {
+            // 先落盘再分析：即使网络失败，日记也不会丢。
             let entry = try persistence.createEntry(text: cleanText, moodTag: selectedMoodTag)
-            let matched = try goalManager.associateGoals(with: entry, plainText: cleanText)
-            matchedGoals = matched
-            goalSnapshots = matched.compactMap { goal in
-                guard let id = goal.id else { return nil }
-                // 进度按「周期内完成的天数」实时算，不存累计计数
-                return GoalProgressSnapshot(
-                    id: id,
-                    title: goal.title ?? "未命名目标",
-                    completedDays: goal.completedDays(),
-                    targetDays: goal.effectiveTargetDays
-                )
-            }
+            let keywordMatches = (try? goalManager.associateGoals(with: entry, plainText: cleanText)) ?? []
 
-            var usedFallback = false
             let cloudAnalysisAllowed = UserDefaults.standard.bool(forKey: "allowCloudAnalysis")
-            if cloudAnalysisAllowed, let emotionService {
-                do {
-                    let localSummary = LocalDiarySummarizer.summarize(cleanText)
-                    empathyCard = try await emotionService.fetchEmpathyCard(summary: localSummary)
-                } catch {
-                    usedFallback = true
-                    empathyCard = EmotionCoachService.fallbackCard()
-                }
+            if cloudAnalysisAllowed, let service = aiService {
+                await runCloudAnalysis(
+                    text: cleanText,
+                    entry: entry,
+                    keywordMatches: keywordMatches,
+                    service: service
+                )
             } else {
-                usedFallback = true
-                empathyCard = EmotionCoachService.fallbackCard()
+                applyLocalResult(moodTag: selectedMoodTag, goals: keywordMatches, reason: nil)
+                feedbackBanner = .init(message: "已保存并使用本地安慰文案", isError: false)
             }
 
             journalText = ""
-            feedbackBanner = .init(
-                message: usedFallback ? "已保存并使用本地安慰文案" : "已保存并加密，已完成 AI 分析",
-                isError: false
-            )
         } catch {
             feedbackBanner = .init(message: "保存失败，请稍后重试", isError: true)
         }
@@ -155,7 +182,99 @@ final class DiaryEntryViewModel: ObservableObject {
         autoDismissBanner()
     }
 
+    /// 云端分析：只发摘要 + 目标结构，拿到情绪、共情与目标动作后落地。
+    private func runCloudAnalysis(
+        text: String,
+        entry: Entry,
+        keywordMatches: [Goal],
+        service: DiaryAIService
+    ) async {
+        let summary = LocalDiarySummarizer.summarize(text)
+        let goals = (try? goalManager.fetchGoals())?.compactMap { $0.aiContext } ?? []
+
+        do {
+            let result = try await service.analyze(
+                summary: summary,
+                moodTag: selectedMoodTag,
+                recentMoods: recentMoodTags(),
+                goals: goals
+            )
+            try store(result, summary: summary, on: entry)
+
+            analysis = result
+            analysisSource = .cloud(
+                provider: service.providerName,
+                model: service.modelName,
+                characters: summary.count
+            )
+
+            // 目标落地失败不应该把已经拿到的情绪卡也一起丢掉。
+            do {
+                let application = try goalManager.apply(result, to: entry)
+                goalSnapshots = makeSnapshots(
+                    goals: merged(application.goals, keywordMatches),
+                    notes: application.notes
+                )
+            } catch {
+                goalSnapshots = makeSnapshots(goals: keywordMatches, notes: [:])
+            }
+
+            isAIReady = true
+            feedbackBanner = .init(message: "已保存 · AI 已完成情绪与目标分析", isError: false)
+        } catch {
+            let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            applyLocalResult(moodTag: selectedMoodTag, goals: keywordMatches, reason: reason)
+            feedbackBanner = .init(message: "已保存并使用本地安慰文案", isError: false)
+        }
+    }
+
+    private func store(_ analysis: DiaryAnalysis, summary: String, on entry: Entry) throws {
+        entry.aiSummary = summary
+        entry.aiAnalysisJSON = analysis.storageJSON
+        entry.aiAnalyzedAt = Date()
+        try context.save()
+    }
+
+    private func applyLocalResult(moodTag: String, goals: [Goal], reason: String?) {
+        analysis = LocalEmpathy.analysis(moodTag: moodTag)
+        analysisSource = .local(reason: reason)
+        goalSnapshots = makeSnapshots(goals: goals, notes: [:])
+    }
+
+    private func makeSnapshots(goals: [Goal], notes: [String: [String]]) -> [GoalProgressSnapshot] {
+        goals.compactMap { goal in
+            guard let id = goal.id else { return nil }
+            let note = notes[id.uuidString]?.joined(separator: " · ")
+            return GoalProgressSnapshot(
+                id: id,
+                title: goal.title ?? "未命名目标",
+                note: (note?.isEmpty ?? true) ? nil : note,
+                completedDays: goal.completedDays(),
+                targetDays: goal.effectiveTargetDays
+            )
+        }
+    }
+
+    private func merged(_ primary: [Goal], _ secondary: [Goal]) -> [Goal] {
+        var result = primary
+        for goal in secondary where !result.contains(where: { $0.id == goal.id }) {
+            result.append(goal)
+        }
+        return result
+    }
+
+    /// 取最近几篇的心情标签，给 AI 一点趋势上下文。
+    private func recentMoodTags(limit: Int = 3) -> [String] {
+        let request = Entry.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \Entry.createdAt, ascending: false)]
+        request.fetchLimit = limit
+        guard let entries = try? context.fetch(request) else { return [] }
+        return entries.compactMap { $0.moodTag }.filter { !$0.isEmpty }
+    }
+
     private func autoDismissBanner() {
+        let shouldAutoDismiss = !(feedbackBanner?.isError ?? false)
+        guard shouldAutoDismiss else { return }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(bannerDismissDelay * 1_000_000_000))
             if !isProcessing {

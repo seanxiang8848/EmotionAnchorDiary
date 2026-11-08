@@ -116,6 +116,23 @@ private struct EntryDetailView: View {
                     Text("解密失败或无内容")
                         .foregroundColor(.secondary)
                 }
+
+                if let analysis = entry.aiAnalysis {
+                    AnalysisCardView(analysis: analysis, badge: "保存时分析", note: nil)
+                }
+
+                if let goals = entry.goals as? Set<Goal>, !goals.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("关联目标")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        ForEach(Array(goals).sorted { ($0.title ?? "") < ($1.title ?? "") }, id: \.objectID) { goal in
+                            Text("• \(goal.title ?? "未命名目标")")
+                                .font(.subheadline)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)

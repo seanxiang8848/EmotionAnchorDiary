@@ -43,4 +43,17 @@ extension Goal {
     var goalRuleText: String {
         "最近 \(effectivePeriodDays) 天内完成 \(effectiveTargetDays) 天"
     }
+
+    /// 发给 AI 的目标快照：只有结构与进度，不含任何日记正文。
+    var aiContext: GoalContext? {
+        guard let goalID = id else { return nil }
+        return GoalContext(
+            id: goalID,
+            title: title ?? "未命名目标",
+            keywords: keywordList,
+            periodDays: effectivePeriodDays,
+            targetDays: effectiveTargetDays,
+            completedDays: completedDays()
+        )
+    }
 }

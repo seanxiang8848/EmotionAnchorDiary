@@ -1,4 +1,5 @@
 import CryptoKit
+import Foundation
 import XCTest
 @testable import EmotionAnchorDiary
 
@@ -43,195 +44,242 @@ final class CryptoManagerTests: XCTestCase {
         XCTAssertEqual(LocalDiarySummarizer.summarize(text).count, 300)
     }
 
-    func testEmotionCoachSendsSummaryAndDecodesResponse() async throws {
-        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
-        let payload = Data("""
-        {"mood":"被倾听","empathy":"谢谢你写下感受。","suggestions":["深呼吸"]}
-        """.utf8)
-        let response = try XCTUnwrap(HTTPURLResponse(
-            url: endpoint,
+    // MARK: - AI 直连（OpenAI 兼容协议）
+
+    private let endpoint = URL(string: "https://api.deepseek.com/v1/chat/completions")!
+
+    private func makeConfig(baseURL: String = "https://api.deepseek.com/v1") -> APIConfig {
+        APIConfig.validated(provider: .deepseek, baseURLString: baseURL, model: "deepseek-chat")!
+    }
+
+    private func makeService(
+        config: APIConfig? = nil,
+        key: String? = "test-key",
+        handler: @escaping (URLRequest) async throws -> (Data, URLResponse)
+    ) -> DiaryAIService {
+        DiaryAIService(
+            configProvider: { config ?? self.makeConfig() },
+            apiKeyProvider: { key },
+            sendRequest: handler
+        )
+    }
+
+    private func chatResponse(content: String, url: URL) -> (Data, URLResponse) {
+        let choice: [String: Any] = [
+            "message": ["role": "assistant", "content": content],
+            "finish_reason": "stop"
+        ]
+        let envelope: [String: Any] = ["choices": [choice]]
+        let data = (try? JSONSerialization.data(withJSONObject: envelope)) ?? Data()
+        let response = HTTPURLResponse(
+            url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: ["Content-Type": "application/json"]
-        ))
-
-        let service = EmotionCoachService(
-            endpointProvider: { endpoint },
-            apiKeyProvider: { "test-key" },
-            sendRequest: { request in
-                XCTAssertEqual(request.httpMethod, "POST")
-                XCTAssertEqual(request.timeoutInterval, 30)
-                XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-key")
-                XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
-                XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/json")
-                let body = try XCTUnwrap(request.httpBody)
-                let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
-                XCTAssertEqual(object, ["summary": "仅发送的摘要"])
-                return (payload, response)
-            }
-        )
-
-        let card = try await service.fetchEmpathyCard(summary: "仅发送的摘要")
-
-        XCTAssertEqual(card.mood, "被倾听")
-        XCTAssertEqual(card.empathy, "谢谢你写下感受。")
-        XCTAssertEqual(card.suggestions, ["深呼吸"])
+        )!
+        return (data, response)
     }
 
-    func testAPIEndpointRequiresHTTPSAndHost() {
-        XCTAssertEqual(
-            APIConfig.validated("  https://ai.example.test/empathy  ")?.endpoint.absoluteString,
-            "https://ai.example.test/empathy"
-        )
-        XCTAssertNil(APIConfig.validated("http://ai.example.test/empathy"))
-        XCTAssertNil(APIConfig.validated("https:///empathy"))
+    private func analysisContent(goalID: UUID) -> String {
+        """
+        {"emotion":{"label":"开心","score":4,"intensity":0.7,"reason":"散步后身体松下来"},"empathy":"今天你出门走了走，身子松了一点。","suggestions":["趁状态好再走十分钟"],"goal_matches":[{"goal_id":"\(goalID.uuidString)","confidence":0.9,"evidence":"散步了三十分钟"}],"goal_updates":[],"new_goals":[]}
+        """
     }
 
-    func testEmotionCoachRejectsInsecureEndpointBeforeSendingRequest() async {
-        var requestWasSent = false
-        let service = EmotionCoachService(
-            endpointProvider: { URL(string: "http://ai.example.test/empathy") },
-            apiKeyProvider: { "test-key" },
-            sendRequest: { _ in
-                requestWasSent = true
-                throw URLError(.badURL)
-            }
-        )
-
-        do {
-            _ = try await service.fetchEmpathyCard(summary: "仅发送的摘要")
-            XCTFail("不安全的 HTTP 地址不应发送请求")
-        } catch {
-            XCTAssertFalse(requestWasSent)
+    func testAIServiceSendsOpenAICompatibleRequest() async throws {
+        let goalID = UUID()
+        var captured: URLRequest?
+        let service = makeService { request in
+            captured = request
+            return self.chatResponse(content: self.analysisContent(goalID: goalID), url: request.url ?? self.endpoint)
         }
-    }
 
-    func testEmotionCoachRequiresAPIKeyBeforeSendingRequest() async {
-        var requestWasSent = false
-        let service = EmotionCoachService(
-            endpointProvider: { URL(string: "https://ai.example.test/empathy") },
-            apiKeyProvider: { nil },
-            sendRequest: { _ in
-                requestWasSent = true
-                throw URLError(.userAuthenticationRequired)
-            }
+        _ = try await service.analyze(
+            summary: "今天散步了三十分钟",
+            moodTag: "平静",
+            recentMoods: ["焦虑"],
+            goals: [
+                GoalContext(
+                    id: goalID,
+                    title: "每天散步",
+                    keywords: ["散步"],
+                    periodDays: 7,
+                    targetDays: 3,
+                    completedDays: 2
+                )
+            ]
         )
 
+        let request = try XCTUnwrap(captured)
+        XCTAssertEqual(request.url, endpoint)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.timeoutInterval, 45)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-key")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/json")
+
+        let body = try XCTUnwrap(request.httpBody)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(object["model"] as? String, "deepseek-chat")
+        XCTAssertEqual(object["stream"] as? Bool, false)
+        XCTAssertEqual((object["response_format"] as? [String: Any])?["type"] as? String, "json_object")
+
+        let messages = try XCTUnwrap(object["messages"] as? [[String: Any]])
+        XCTAssertEqual(messages.count, 2)
+        XCTAssertEqual(messages.first?["role"] as? String, "system")
+        let userContent = try XCTUnwrap(messages.last?["content"] as? String)
+        XCTAssertTrue(userContent.contains("今天散步了三十分钟"))
+        XCTAssertTrue(userContent.contains(goalID.uuidString))
+        XCTAssertTrue(userContent.contains("\"mood_tag\":\"平静\""))
+    }
+
+    func testAIServiceDecodesStructuredAnalysis() async throws {
+        let goalID = UUID()
+        let service = makeService { request in
+            self.chatResponse(content: self.analysisContent(goalID: goalID), url: request.url ?? self.endpoint)
+        }
+
+        let result = try await service.analyze(
+            summary: "今天散步了三十分钟，心情不错",
+            moodTag: "平静",
+            recentMoods: [],
+            goals: []
+        )
+
+        XCTAssertEqual(result.emotion.label, "开心")
+        XCTAssertEqual(result.emotion.score, 4, accuracy: 0.001)
+        XCTAssertEqual(result.emotion.intensity, 0.7, accuracy: 0.001)
+        XCTAssertEqual(result.empathy, "今天你出门走了走，身子松了一点。")
+        XCTAssertEqual(result.suggestions, ["趁状态好再走十分钟"])
+        XCTAssertEqual(result.goalMatches.count, 1)
+        XCTAssertEqual(result.goalMatches.first?.goalID, goalID)
+        XCTAssertEqual(result.goalMatches.first?.evidence, "散步了三十分钟")
+    }
+
+    /// 容忍代码块包裹、情绪标签不在词表内、数字写成字符串
+    func testAIServiceToleratesFenceAndLooseFields() async throws {
+        let content = """
+        ```json
+        {"emotion":{"label":"有点焦虑","score":"2","intensity":"0.6","reason":"明天要汇报"},"empathy":"明天那场汇报悬在心上。","suggestions":"深呼吸\\n把要点写下来","goal_matches":[],"goal_updates":[],"new_goals":[{"title":"准备汇报","keywords":["汇报","PPT"],"period_days":"3","target_days":"2","confidence":"0.8","reason":"明确说要准备"}]}
+        ```
+        """
+        let service = makeService { request in
+            self.chatResponse(content: content, url: request.url ?? self.endpoint)
+        }
+
+        let result = try await service.analyze(summary: "明天要汇报", moodTag: "平静", recentMoods: [], goals: [])
+
+        XCTAssertEqual(result.emotion.label, "焦虑")
+        XCTAssertEqual(result.emotion.score, 2, accuracy: 0.001)
+        XCTAssertEqual(result.suggestions, ["深呼吸", "把要点写下来"])
+        XCTAssertEqual(result.newGoals.count, 1)
+        XCTAssertEqual(result.newGoals.first?.title, "准备汇报")
+        XCTAssertEqual(result.newGoals.first?.periodDays, 3)
+        XCTAssertEqual(result.newGoals.first?.targetDays, 2)
+    }
+
+    func testAIRequiresAPIKeyBeforeSendingRequest() async {
+        var requestWasSent = false
+        let service = makeService(key: nil) { _ in
+            requestWasSent = true
+            throw URLError(.userAuthenticationRequired)
+        }
+
         do {
-            _ = try await service.fetchEmpathyCard(summary: "仅发送的摘要")
+            _ = try await service.analyze(summary: "摘要", moodTag: "平静", recentMoods: [], goals: [])
             XCTFail("缺少 API Key 时不应发送请求")
         } catch {
+            XCTAssertEqual(error as? AIServiceError, AIServiceError.missingAPIKey)
             XCTAssertFalse(requestWasSent)
         }
     }
 
-    // MARK: - AI 错误场景覆盖（P1-6）
+    func testAIOnlyAcceptsHTTPSEndpoints() {
+        XCTAssertNotNil(APIConfig.validated(provider: .deepseek, baseURLString: "https://api.deepseek.com/v1", model: "deepseek-chat"))
+        XCTAssertNil(APIConfig.validated(provider: .custom, baseURLString: "http://api.example.test/v1", model: "m"))
+        XCTAssertNil(APIConfig.validated(provider: .custom, baseURLString: "https://api.example.test/v1", model: "   "))
+        XCTAssertEqual(APIConfig.fallback.provider, .deepseek)
+        XCTAssertEqual(APIConfig.fallback.chatCompletionsURL.absoluteString, "https://api.deepseek.com/v1/chat/completions")
+    }
 
-    /// 服务返回 500 等非 2xx 状态码时，应抛出“服务不可用”错误而非静默或崩溃
-    func testEmotionCoachThrowsOnServerError500() async throws {
-        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
-        let response = try XCTUnwrap(HTTPURLResponse(
-            url: endpoint,
-            statusCode: 500,
-            httpVersion: nil,
-            headerFields: nil
-        ))
-        let service = EmotionCoachService(
-            endpointProvider: { endpoint },
-            apiKeyProvider: { "test-key" },
-            sendRequest: { _ in (Data("{}".utf8), response) }
-        )
+    func testAIServiceMapsUnauthorizedResponse() async throws {
+        let service = makeService { request in
+            let response = HTTPURLResponse(url: request.url ?? self.endpoint, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (Data("{\"error\":{\"message\":\"invalid api key\"}}".utf8), response)
+        }
 
         do {
-            _ = try await service.fetchEmpathyCard(summary: "摘要")
-            XCTFail("服务返回 500 时应抛出错误")
+            _ = try await service.analyze(summary: "摘要", moodTag: "平静", recentMoods: [], goals: [])
+            XCTFail("401 应抛出未授权错误")
         } catch {
-            let nsError = error as NSError
-            XCTAssertEqual(nsError.domain, "EmotionCoach")
-            XCTAssertEqual(nsError.code, 1)
+            XCTAssertEqual(error as? AIServiceError, AIServiceError.unauthorized)
         }
     }
 
-    /// API Key 错误（401）应走同样的服务错误路径，且不应泄露密钥细节
-    func testEmotionCoachThrowsOnUnauthorizedAPIKey() async throws {
-        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
-        let response = try XCTUnwrap(HTTPURLResponse(
-            url: endpoint,
-            statusCode: 401,
-            httpVersion: nil,
-            headerFields: nil
-        ))
-        let service = EmotionCoachService(
-            endpointProvider: { endpoint },
-            apiKeyProvider: { "wrong-key" },
-            sendRequest: { _ in (Data("{}".utf8), response) }
-        )
+    /// 有的兼容网关不认 response_format，应在 400 后去掉它重试一次
+    func testAIServiceRetriesWithoutJSONModeWhenRejected() async throws {
+        let goalID = UUID()
+        var attempts = 0
+        let service = makeService { request in
+            attempts += 1
+            if attempts == 1 {
+                let response = HTTPURLResponse(url: request.url ?? self.endpoint, statusCode: 400, httpVersion: nil, headerFields: nil)!
+                return (Data("{\"error\":{\"message\":\"response_format not supported\"}}".utf8), response)
+            }
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+            XCTAssertNil(body["response_format"])
+            return self.chatResponse(content: self.analysisContent(goalID: goalID), url: request.url ?? self.endpoint)
+        }
+
+        let result = try await service.analyze(summary: "摘要", moodTag: "平静", recentMoods: [], goals: [])
+
+        XCTAssertEqual(attempts, 2)
+        XCTAssertEqual(result.emotion.label, "开心")
+    }
+
+    func testAIServiceThrowsOnInvalidContent() async throws {
+        let service = makeService { request in
+            self.chatResponse(content: "这不是 JSON", url: request.url ?? self.endpoint)
+        }
 
         do {
-            _ = try await service.fetchEmpathyCard(summary: "摘要")
-            XCTFail("API Key 无效（401）时应抛出错误")
+            _ = try await service.analyze(summary: "摘要", moodTag: "平静", recentMoods: [], goals: [])
+            XCTFail("内容不是 JSON 时应抛错")
         } catch {
-            let nsError = error as NSError
-            XCTAssertEqual(nsError.domain, "EmotionCoach")
-            XCTAssertEqual(nsError.code, 1)
+            XCTAssertEqual(error as? AIServiceError, AIServiceError.invalidResponse)
         }
     }
 
-    /// 服务返回 200 但响应体不是合法 JSON 时，应抛出解码错误而非显示错乱内容
-    func testEmotionCoachThrowsOnInvalidResponseBody() async throws {
-        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
-        let response = try XCTUnwrap(HTTPURLResponse(
-            url: endpoint,
-            statusCode: 200,
-            httpVersion: nil,
-            headerFields: ["Content-Type": "application/json"]
-        ))
-        let service = EmotionCoachService(
-            endpointProvider: { endpoint },
-            apiKeyProvider: { "test-key" },
-            sendRequest: { _ in (Data("this is not json".utf8), response) }
-        )
+    func testAIServicePropagatesNetworkFailure() async throws {
+        let service = makeService { _ in throw URLError(.notConnectedToInternet) }
 
         do {
-            _ = try await service.fetchEmpathyCard(summary: "摘要")
-            XCTFail("响应体非法时应抛出解码错误")
-        } catch {
-            // 任何解码错误都符合预期
-        }
-    }
-
-    /// 断网时应如实抛出网络错误，上层据此回退到本地共情回应
-    func testEmotionCoachPropagatesNetworkFailure() async throws {
-        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
-        let service = EmotionCoachService(
-            endpointProvider: { endpoint },
-            apiKeyProvider: { "test-key" },
-            sendRequest: { _ in throw URLError(.notConnectedToInternet) }
-        )
-
-        do {
-            _ = try await service.fetchEmpathyCard(summary: "摘要")
+            _ = try await service.analyze(summary: "摘要", moodTag: "平静", recentMoods: [], goals: [])
             XCTFail("断网时应抛出网络错误")
         } catch {
-            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+            guard let aiError = error as? AIServiceError, case .network = aiError else {
+                return XCTFail("应映射为网络错误，实际：\(error)")
+            }
         }
     }
 
-    /// 请求超时（30 秒限制）应如实抛出超时错误
-    func testEmotionCoachPropagatesTimeout() async throws {
-        let endpoint = try XCTUnwrap(URL(string: "https://ai.example.test/empathy"))
-        let service = EmotionCoachService(
-            endpointProvider: { endpoint },
-            apiKeyProvider: { "test-key" },
-            sendRequest: { _ in throw URLError(.timedOut) }
-        )
+    /// 本地兜底文案要贴合用户自选心情
+    func testLocalEmpathyMatchesSelectedMood() {
+        let anxious = LocalEmpathy.analysis(moodTag: "焦虑")
+        XCTAssertEqual(anxious.emotion.label, "焦虑")
+        XCTAssertEqual(anxious.emotion.score, 2, accuracy: 0.001)
+        XCTAssertFalse(anxious.empathy.isEmpty)
+        XCTAssertFalse(anxious.suggestions.isEmpty)
+    }
 
-        do {
-            _ = try await service.fetchEmpathyCard(summary: "摘要")
-            XCTFail("超时应抛出超时错误")
-        } catch {
-            XCTAssertEqual((error as? URLError)?.code, .timedOut)
-        }
+    func testAnalysisRoundTripsThroughStorageJSON() throws {
+        let analysis = LocalEmpathy.analysis(moodTag: "开心")
+        let json = try XCTUnwrap(analysis.storageJSON)
+        let decoded = try DiaryAnalysisParser.parse(json)
+
+        XCTAssertEqual(decoded.emotion.label, analysis.emotion.label)
+        XCTAssertEqual(decoded.empathy, analysis.empathy)
+        XCTAssertEqual(decoded.suggestions, analysis.suggestions)
     }
 
     func testDiaryExportDecryptsFullTextAndSortsEntriesChronologically() throws {
