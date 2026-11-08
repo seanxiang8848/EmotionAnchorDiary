@@ -68,6 +68,12 @@ if code == 200
   groups.each do |g|
     a = g['attributes']
     puts "  - #{a['name']} | 内部组=#{a['isInternalGroup']} | 创建于 #{a['createdDate']} | id=#{g['id']}"
+    c1, b1 = get("/v1/betaGroups/#{g['id']}/betaTesters?limit=200")
+    emails = c1 == 200 ? (JSON.parse(b1)['data'] || []).map { |t| t.dig('attributes', 'email') } : ["查询失败 HTTP #{c1}"]
+    puts "      组内测试员(#{emails.size}): #{emails.empty? ? '（空）' : emails.join(', ')}"
+    c2, b2 = get("/v1/betaGroups/#{g['id']}/builds?limit=5")
+    build_nums = c2 == 200 ? (JSON.parse(b2)['data'] || []).map { |b| b.dig('attributes', 'version') } : []
+    puts "      组内构建: #{build_nums.empty? ? '（无）' : build_nums.join(', ')}"
   end
   puts '  ⚠️ 没有任何测试组，构建无法出现在手机 TestFlight' if groups.empty?
 else
@@ -76,7 +82,7 @@ end
 
 puts "\n=== 3. 最近构建及所属测试组 ==="
 # apps/{id}/builds 不允许 include/sort，改用 builds 集合 + filter[app]
-code, body = get("/v1/builds?filter%5Bapp%5D=#{app_id}&limit=10&sort=-uploadedDate&include=betaGroups,buildBetaDetail")
+code, body = get("/v1/builds?filter%5Bapp%5D=#{app_id}&limit=10&sort=-uploadedDate&include=betaGroups,buildBetaDetail,preReleaseVersion")
 if code == 200
   json = JSON.parse(body)
   included = (json['included'] || []).each_with_object({}) { |i, h| h[i['id']] = i }
@@ -88,7 +94,9 @@ if code == 200
     detail_id = b.dig('relationships', 'buildBetaDetail', 'data', 'id')
     external_state = included.dig(detail_id, 'attributes', 'externalBuildState')
     internal_state = included.dig(detail_id, 'attributes', 'internalBuildState')
-    puts "  build #{a['buildNumber']} (v#{a['version']}) | #{a['processingState']} | 上传 #{a['uploadedDate']} | 过期=#{a['expired']}"
+    pre_id = b.dig('relationships', 'preReleaseVersion', 'data', 'id')
+    marketing = included.dig(pre_id, 'attributes', 'version') || '?'
+    puts "  build #{a['version']} | 营销版本 #{marketing} | #{a['processingState']} | 上传 #{a['uploadedDate']} | 过期=#{a['expired']}"
     puts "      内部状态=#{internal_state || '?'} 外部状态=#{external_state || '?'}"
     puts "      测试组: #{names.empty? ? '（未加入任何组）' : names.join('、')}"
   end
