@@ -122,6 +122,8 @@ jobs:
               <string>TEAM_ID_PLACEHOLDER</string>
               <key>destination</key>
               <string>export</string>
+              <key>manageAppVersionAndBuildNumber</key>
+              <false/>
           </dict>
           </plist>
           PLIST_HEAD

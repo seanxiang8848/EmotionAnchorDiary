@@ -109,8 +109,38 @@ end
 
 groups = (JSON.parse(body)['data'] || [])
 if groups.empty?
-  log '该 App 还没有测试组。请先在 App Store Connect 网页创建: TestFlight -> 新建组(内部组无需审核)'
-  exit 0
+  # 没有测试组时构建无法出现在手机 TestFlight，尝试自动建一个内部组
+  log '该 App 还没有测试组，尝试创建内部组「内部测试」...'
+  code, body = asc(:post, '/v1/betaGroups', token,
+                   { 'data' => {
+                     'type' => 'betaGroups',
+                     'attributes' => { 'name' => '内部测试', 'isInternalGroup' => true },
+                     'relationships' => { 'app' => { 'data' => { 'type' => 'apps', 'id' => app_id } } }
+                   } })
+  if code >= 200 && code < 300
+    created = JSON.parse(body)['data']
+    groups = [created]
+    log "已创建测试组: #{created.dig('attributes', 'name')} (内部组=#{created.dig('attributes', 'isInternalGroup')})"
+    unless created.dig('attributes', 'isInternalGroup')
+      log '注意：Apple 建成了外部组，外部组首次分发需要 Beta 审核；如需即时安装请在网页改为内部测试组'
+    end
+    # 新组是空的，把账号里已有的测试员加进去，否则没人能看到构建
+    code, body = asc(:get, '/v1/betaTesters?limit=200', token)
+    if code == 200
+      tester_ids = (JSON.parse(body)['data'] || []).map { |t| t['id'] }
+      if tester_ids.empty?
+        log '账号下还没有测试员，请先在 App Store Connect 把 Apple ID 加为内部测试员'
+      else
+        c2, b2 = asc(:post, "/v1/betaGroups/#{created['id']}/relationships/betaTesters", token,
+                     { 'data' => tester_ids.map { |i| { 'type' => 'betaTesters', 'id' => i } } })
+        log(c2 >= 200 && c2 < 300 ? "已把 #{tester_ids.size} 位测试员加入该组" : "添加测试员失败: HTTP #{c2} #{b2[0, 300]}")
+      end
+    end
+  else
+    log "创建测试组失败: HTTP #{code}\n#{body[0, 600]}"
+    log '请手动在 App Store Connect -> TestFlight -> 内部测试 添加你的 Apple ID 为测试员，然后重新运行上传工作流'
+    exit 0
+  end
 end
 
 group = nil
@@ -135,17 +165,18 @@ last     = nil
 build    = nil
 
 while Time.now < deadline
-  code, body = asc(:get, "/v1/apps/#{app_id}/builds?limit=10&sort=-uploadedDate", token)
+  code, body = asc(:get, "/v1/apps/#{app_id}/builds?limit=10", token)
   if code == 200
-    list = (JSON.parse(body)['data'] || [])
+    list = (JSON.parse(body)['data'] || []).sort_by { |b| b.dig('attributes', 'uploadedDate').to_s }.reverse
+    # Build 资源里没有 buildNumber 字段，CFBundleVersion 存在 attributes.version 里。
     # 指定了构建号就精确匹配：否则本轮刚上传时索引里可能只有上一轮已处理完的
     # 构建，脚本会把旧构建加进测试组，新构建永远进不去。
-    cand = list.find do |b|
-      next false unless b.dig('attributes', 'version') == VERSION
-
-      EXPECT.empty? || b.dig('attributes', 'buildNumber') == EXPECT
-    end
-    label = EXPECT.empty? ? VERSION : "#{VERSION}(#{EXPECT})"
+    cand = if EXPECT.empty?
+             list.first
+           else
+             list.find { |b| b.dig('attributes', 'version').to_s == EXPECT }
+           end
+    label = EXPECT.empty? ? '最新构建' : "构建 #{EXPECT}"
     if cand
       state = cand.dig('attributes', 'processingState')
       # 只在状态变化时输出，避免每 30 秒刷一行日志
@@ -180,7 +211,7 @@ code, body = asc(:post, "/v1/betaGroups/#{group['id']}/relationships/builds", to
                  { 'data' => [{ 'type' => 'builds', 'id' => build['id'] }] })
 
 if code >= 200 && code < 300
-  log "构建 #{VERSION} (#{build.dig('attributes', 'buildNumber')}) 已加入 #{group_name}。打开手机 TestFlight 即可看到更新。"
+  log "构建 #{build.dig('attributes', 'version')} 已加入 #{group_name}。打开手机 TestFlight 即可看到更新。"
 elsif code == 409
   log "构建已在该测试组中, 无需重复添加。"
 else
