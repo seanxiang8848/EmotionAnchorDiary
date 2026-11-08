@@ -8,6 +8,7 @@
 #   ASC_MARKETING_VERSION  默认 1.0
 #   ASC_BETA_GROUP         指定测试组名；留空则自动选内部组
 #   ASC_WAIT_MINUTES       等待 Apple 处理的超时分钟数，默认 40
+#   ASC_BUILD_NUMBER       期望分发的构建号（= 流水线 run_number）；留空则取该版本最新构建
 
 require 'base64'
 require 'json'
@@ -23,6 +24,7 @@ BUNDLE_ID  = ENV['ASC_BUNDLE_ID'] || 'com.emotionanchor.diary'
 VERSION    = ENV['ASC_MARKETING_VERSION'] || '1.0'
 GROUP_NAME = ENV['ASC_BETA_GROUP'].to_s.strip
 WAIT_MIN   = (ENV['ASC_WAIT_MINUTES'] || '40').to_i
+EXPECT     = ENV['ASC_BUILD_NUMBER'].to_s.strip
 SUMMARY    = ENV['GITHUB_STEP_SUMMARY'].to_s
 
 def log(msg)
@@ -136,13 +138,20 @@ while Time.now < deadline
   code, body = asc(:get, "/v1/apps/#{app_id}/builds?limit=10&sort=-uploadedDate", token)
   if code == 200
     list = (JSON.parse(body)['data'] || [])
-    cand = list.find { |b| b.dig('attributes', 'version') == VERSION }
+    # 指定了构建号就精确匹配：否则本轮刚上传时索引里可能只有上一轮已处理完的
+    # 构建，脚本会把旧构建加进测试组，新构建永远进不去。
+    cand = list.find do |b|
+      next false unless b.dig('attributes', 'version') == VERSION
+
+      EXPECT.empty? || b.dig('attributes', 'buildNumber') == EXPECT
+    end
+    label = EXPECT.empty? ? VERSION : "#{VERSION}(#{EXPECT})"
     if cand
       state = cand.dig('attributes', 'processingState')
       # 只在状态变化时输出，避免每 30 秒刷一行日志
       if state != last
         elapsed = ((Time.now - started) / 60).round
-        log "构建 #{VERSION} (#{cand.dig('attributes', 'buildNumber')}) 状态: #{state} (已等待 #{elapsed} 分钟)"
+        log "构建 #{label} 状态: #{state} (已等待 #{elapsed} 分钟)"
         last = state
       end
       if state == 'VALID'
@@ -153,7 +162,7 @@ while Time.now < deadline
         exit 1
       end
     elsif last != 'MISSING'
-      log "构建尚未出现在 App Store Connect 索引中, 继续等待..."
+      log "构建 #{label} 尚未出现在 App Store Connect 索引中, 继续等待..."
       last = 'MISSING'
     end
   else
