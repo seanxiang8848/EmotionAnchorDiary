@@ -105,10 +105,25 @@ else
 end
 
 puts "\n=== 4. 测试员数量 ==="
-code, body = get('/v1/betaTesters?limit=5')
+code, body = get('/v1/betaTesters?limit=10&fields%5BbetaTesters%5D=email,firstName,lastName,inviteType')
 if code == 200
-  json = JSON.parse(body)
-  puts "前 5 位测试员: #{(json['data'] || []).map { |t| t.dig('attributes', 'email') }.join(', ')}"
+  list = JSON.parse(body)['data'] || []
+  puts "测试员 #{list.size} 位"
+  list.each do |t|
+    a = t['attributes']
+    puts "  - #{a['email']} | inviteType=#{a['inviteType'].inspect} | id=#{t['id']}"
+  end
 else
   puts "查询失败 HTTP #{code}"
+end
+
+puts "\n=== 5. App Store Connect 用户（判断是否账号持有者） ==="
+code, body = get('/v1/users?limit=20&fields%5Busers%5D=username,firstName,lastName,roles,allAppsVisible,provisioningAllowed')
+if code == 200
+  (JSON.parse(body)['data'] || []).each do |u|
+    a = u['attributes']
+    puts "  - #{a['username']} | #{a['firstName']} #{a['lastName']} | roles=#{(a['roles'] || []).join('/')} | 全App可见=#{a['allAppsVisible']}"
+  end
+else
+  puts "查询失败 HTTP #{code}（API Key 可能不是 Admin 角色）"
 end
