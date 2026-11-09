@@ -115,6 +115,9 @@ final class DiaryEntryViewModel: ObservableObject {
                 }
 
                 do {
+                    // 新一轮录音从空白开始。转写绑定现在会过滤空串，
+                    // 所以清屏动作改在这里显式完成，语义与旧版一致。
+                    journalText = ""
                     try speechService.startRecording()
                 } catch {
                     isRecording = false
@@ -127,8 +130,14 @@ final class DiaryEntryViewModel: ObservableObject {
     }
 
     private func bindSpeechTranscript() {
+        // 只把「真正有内容的转写结果」写进编辑框。
+        // 旧写法直接 assign 全部值：startRecording 的初始空串、识别回调里的
+        // 空结果都会写回 journalText，在录音与手动输入交错时会把刚键入的文字
+        // 瞬间清掉（真机反馈「看不见已键入内容」的另一条路径）。
         speechService.$transcript
             .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .filter { !$0.isEmpty }
             .assign(to: &$journalText)
 
         speechService.$isRecording

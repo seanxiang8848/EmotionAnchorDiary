@@ -1,11 +1,14 @@
 import SwiftUI
+import UIKit
 import CoreData
 import UniformTypeIdentifiers
 
 struct DiaryEntryView: View {
     @ObservedObject var viewModel: DiaryEntryViewModel
     @State private var showSavedEntries: Bool = false
-    @FocusState private var isJournalFocused: Bool
+    /// 自定义 UITextView 自己管理第一响应者，用普通 State 同步焦点即可
+    /// （FocusState 对 UIViewRepresentable 不生效，反而会让"完成"按钮收不起键盘）。
+    @State private var isJournalFocused: Bool = false
     @AppStorage("allowCloudAnalysis") private var allowCloudAnalysis = false
 
     var body: some View {
@@ -40,13 +43,15 @@ struct DiaryEntryView: View {
                     }
                     .font(.subheadline)
 
-                    TextEditor(text: $viewModel.journalText)
-                        // minHeight + maxHeight：固定 height 的 TextEditor 在 ScrollView 里
-                        // 有已知渲染缺陷（输入到中途光标前的内容“消失”，滚动后才复现）
-                        .frame(minHeight: 160, maxHeight: 320)
+                    // 用 UIKit 的 UITextView 替代 SwiftUI TextEditor：
+                    // TextEditor 嵌在 ScrollView 里（尤其深色模式、键盘弹起、页面内容变多时）
+                    // 会出现"已键入文字不绘制 / 被滚出可视区"的渲染缺陷，上一轮改 min/max 高度
+                    // 只是缓解，AI 版本页面变长后再次复现。UITextView 自管文字色、背景与滚动。
+                    JournalTextView(text: $viewModel.journalText, isFocused: $isJournalFocused)
+                        // 明确宽高：UIViewRepresentable 不保证横向撑满，
+                        // 固定高度让 UITextView 自己滚动，避免与外层 ScrollView 抢手势。
+                        .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2)))
-                        .focused($isJournalFocused)
-                        .accessibilityIdentifier("diary-entry-editor")
 
                     Picker("此刻的心情", selection: $viewModel.selectedMoodTag) {
                         ForEach(MoodOption.all) { mood in
@@ -83,7 +88,7 @@ struct DiaryEntryView: View {
 
                             if viewModel.isRecording {
                                 // 计时与波形由子视图自持：每秒重渲染只发生在这个小组件里，
-                                // 不会触发整页（含 TextEditor）重算
+                                // 不会触发整页（含输入框）重算
                                 RecordingIndicatorView()
                             }
                         }
@@ -136,10 +141,8 @@ struct DiaryEntryView: View {
             .navigationTitle("情绪锚点")
             .onAppear { viewModel.refreshAIStatus() }
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("完成") { isJournalFocused = false }
-                }
+                // 键盘上的「完成」由 JournalTextView 自带的 inputAccessoryView 提供：
+                // SwiftUI 的 keyboard toolbar 对 UIViewRepresentable 不保证出现。
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: AppSettingsView(viewModel: viewModel)) {
                         Image(systemName: "gearshape")
@@ -151,6 +154,119 @@ struct DiaryEntryView: View {
         .sheet(isPresented: $showSavedEntries) {
             EntryListView()
                 .environment(\.managedObjectContext, viewModel.viewContext)
+        }
+    }
+}
+
+// MARK: - 日记正文输入框
+
+/// 稳定的日记正文输入控件（替代 SwiftUI TextEditor）。
+///
+/// 背景：TextEditor 嵌套在 ScrollView 里时，输入过程中会出现已键入文字不绘制、
+/// 光标前内容"消失"的渲染缺陷；深色模式下默认文字/背景对比也可能失效。
+/// 上一轮把固定 height 改成 min/max 高度只是缓解，AI 版本页面内容变长后再次复现。
+/// 这里直接用 UITextView：文字色 `.label`、背景 `.secondarySystemBackground`、
+/// 光标 `.systemBlue` 都随深浅色外观自适应，滚动也由它自己管理。
+///
+/// 关键约束：updateUIView 只在外部文字真的变化时回写，否则整页重渲染
+/// 会把光标位置和中文输入法的组合输入冲掉。
+private struct JournalTextView: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var isFocused: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.delegate = context.coordinator
+        textView.accessibilityIdentifier = "diary-entry-editor"
+        textView.font = .preferredFont(forTextStyle: .body)
+        textView.adjustsFontForContentSizeCategory = true
+        textView.textColor = .label
+        textView.backgroundColor = .secondarySystemBackground
+        textView.tintColor = .systemBlue
+        textView.text = text
+        textView.isScrollEnabled = true
+        textView.alwaysBounceVertical = false
+        textView.layer.cornerRadius = 12
+        textView.clipsToBounds = true
+        textView.textContainerInset = UIEdgeInsets(top: 10, left: 8, bottom: 10, right: 8)
+
+        // 自己提供键盘工具条：SwiftUI 的 .keyboard toolbar 挂在宿主视图上，
+        // 对 UIViewRepresentable 内部的 firstResponder 不保证生效。
+        let doneBar = UIToolbar()
+        doneBar.items = [
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            UIBarButtonItem(
+                title: "完成",
+                style: .done,
+                target: context.coordinator,
+                action: #selector(Coordinator.doneTapped)
+            )
+        ]
+        doneBar.sizeToFit()
+        textView.inputAccessoryView = doneBar
+        context.coordinator.textView = textView
+        return textView
+    }
+
+    func updateUIView(_ textView: UITextView, context: Context) {
+        // 不打断输入：键入时 binding 与 textView.text 相等，直接跳过回写。
+        if (textView.text ?? "") != text {
+            textView.text = text
+        }
+        // 提交按钮通过 isFocused 收起键盘；键盘工具条的「完成」直接 resign。
+        if isFocused && !textView.isFirstResponder {
+            textView.becomeFirstResponder()
+        } else if !isFocused && textView.isFirstResponder {
+            textView.resignFirstResponder()
+        }
+    }
+
+    final class Coordinator: NSObject, UITextViewDelegate {
+        var parent: JournalTextView
+        weak var textView: UITextView?
+
+        init(parent: JournalTextView) {
+            self.parent = parent
+        }
+
+        @objc func doneTapped() {
+            textView?.resignFirstResponder()
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            parent.text = textView.text ?? ""
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            parent.isFocused = true
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            parent.isFocused = false
+        }
+    }
+}
+
+/// 给仍然使用 SwiftUI 原生 TextField 的页面补键盘「完成」按钮。
+/// 首页的键盘工具条由 JournalTextView 自带，这里只服务设置页 / 目标编辑页。
+extension View {
+    func keyboardDoneToolbar() -> some View {
+        toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完成") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil,
+                        from: nil,
+                        for: nil
+                    )
+                }
+            }
         }
     }
 }
@@ -357,13 +473,16 @@ struct AppSettingsView: View {
                 }
 
                 TextField("模型", text: $modelText)
+                    .foregroundStyle(.primary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 TextField("API 地址（https）", text: $baseURLText)
+                    .foregroundStyle(.primary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
                 SecureField("API Key", text: $apiKey)
+                    .foregroundStyle(.primary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
 
@@ -411,6 +530,7 @@ struct AppSettingsView: View {
                 }
             }
         }
+        .keyboardDoneToolbar()
         .navigationTitle("设置")
         .alert(statusMessage ?? "", isPresented: $showMessage) {
             Button("好", role: .cancel) { }

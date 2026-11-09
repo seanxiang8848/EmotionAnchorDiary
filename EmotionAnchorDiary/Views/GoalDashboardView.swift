@@ -118,8 +118,10 @@ private struct GoalEditorView: View {
         Form {
             Section("目标内容") {
                 TextField("例如：每天散步", text: $title)
+                    .foregroundStyle(.primary)
                     .textInputAutocapitalization(.none)
                 TextField("关键词，用逗号分隔", text: $keywordsText)
+                    .foregroundStyle(.primary)
                     .textInputAutocapitalization(.never)
             }
             Section("进度目标") {
@@ -133,6 +135,7 @@ private struct GoalEditorView: View {
                 if targetFrequency > newValue { targetFrequency = newValue }
             }
         }
+        .keyboardDoneToolbar()
         .navigationTitle(goal == nil ? "新建目标" : "编辑目标")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

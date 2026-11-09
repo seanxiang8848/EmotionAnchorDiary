@@ -75,6 +75,22 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
     }
 
+    /// 回归：真机反馈「输入栏看不见已键入内容」。
+    /// 键入后编辑框必须立即显示文字，且不能被页面重算 / 语音转写的空值清掉。
+    func testEditorDisplaysTypedTextImmediately() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app)
+
+        let editor = app.textViews["diary-entry-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText("今天散步了半小时")
+
+        let predicate = NSPredicate(format: "value CONTAINS %@", "今天散步")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+    }
+
     func testCloudAnalysisDisabledUsesLocalEmpathy() throws {
         let app = XCUIApplication()
         launchDiary(in: app, extraArguments: ["-ui-testing-ai-success"])
