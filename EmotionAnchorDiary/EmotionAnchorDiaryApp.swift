@@ -1,6 +1,185 @@
 import Foundation
 import SwiftUI
+import UIKit
 import LocalAuthentication
+
+// MARK: - 设计系统「静页 Quiet Page」
+
+/// 暖纸质感 + 暮色青绿。所有颜色都是动态色，深浅模式分别调过对比度，
+/// 不依赖系统默认灰，避免深色模式下卡片变成一块死黑。
+enum AppTheme {
+    static let canvas = palette(0xF6F3EC, 0x10171B)
+    static let surface = palette(0xFFFFFF, 0x1B2529)
+    static let surfaceSoft = palette(0xEFEDE4, 0x223037)
+    static let ink = palette(0x27312D, 0xEBF1EB)
+    static let inkSoft = palette(0x77827C, 0x9DAFA8)
+    static let hairline = palette(0xE5E2D8, 0x2C3A3E)
+    static let accent = palette(0x2F6B5A, 0x86CDB2)
+    static let accentSoft = palette(0xE3F0E8, 0x1C3730)
+    static let warm = palette(0xD9815C, 0xE8A681)
+    static let warmSoft = palette(0xFBEBE0, 0x3A2A24)
+    static let topGlow = palette(0xE8F0E7, 0x16292C)
+
+    static var accentUI: UIColor {
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(hex: 0x86CDB2) : UIColor(hex: 0x2F6B5A)
+        }
+    }
+
+    static var inkUI: UIColor {
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(hex: 0xEBF1EB) : UIColor(hex: 0x27312D)
+        }
+    }
+
+    static var dropShadow: Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor.black.withAlphaComponent(0.42)
+                : UIColor(red: 0.16, green: 0.22, blue: 0.18, alpha: 0.10)
+        })
+    }
+
+    static var primaryGradient: LinearGradient {
+        LinearGradient(
+            colors: [palette(0x357A66, 0x47907A), palette(0x245447, 0x2F6B5A)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static var warmGradient: LinearGradient {
+        LinearGradient(
+            colors: [palette(0xE79C6F, 0xE8A27C), palette(0xD97B55, 0xD98A64)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static var backgroundGradient: LinearGradient {
+        LinearGradient(
+            colors: [topGlow, canvas],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    static func moodColor(_ tag: String) -> Color {
+        switch tag {
+        case "低落": return palette(0x7B8CA6, 0x9FB4D0)
+        case "焦虑": return palette(0xD98F6B, 0xE8A681)
+        case "开心": return palette(0xD3A044, 0xEDC36B)
+        case "有能量": return palette(0x6BA268, 0x8FCB8B)
+        default: return palette(0x5B9E97, 0x7FC8C0)
+        }
+    }
+
+    static func moodSymbol(_ tag: String) -> String {
+        switch tag {
+        case "低落": return "cloud.drizzle"
+        case "焦虑": return "wind"
+        case "开心": return "sun.max"
+        case "有能量": return "bolt.fill"
+        default: return "leaf"
+        }
+    }
+
+    private static func palette(_ light: UInt32, _ dark: UInt32) -> Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light)
+        })
+    }
+}
+
+private extension UIColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
+
+extension View {
+    /// 全屏背景：顶部一层极淡的晨光，落在暖纸底色上。
+    func appScreenBackground() -> some View {
+        background {
+            ZStack(alignment: .top) {
+                AppTheme.canvas
+                AppTheme.backgroundGradient.frame(height: 380)
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    /// 统一的纸感卡片：大圆角、细描边、柔和投影。
+    func paperCard(padding: CGFloat = 18, radius: CGFloat = 22, tint: Color? = nil) -> some View {
+        self.padding(padding)
+            .background(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(tint ?? AppTheme.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(AppTheme.hairline, lineWidth: 1)
+            )
+            .shadow(color: AppTheme.dropShadow, radius: 16, x: 0, y: 7)
+    }
+}
+
+/// 分区小标题：图标 + 次级文字，统一页面节奏。
+struct SectionCaption: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        Label(title, systemImage: symbol)
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            .foregroundStyle(AppTheme.inkSoft)
+    }
+}
+
+/// 主行动按钮：柔和渐变、按压反馈。文案由调用方提供，不改动可访问性标识。
+struct SoftPrimaryButtonStyle: ButtonStyle {
+    var fill: LinearGradient = AppTheme.primaryGradient
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(.headline, design: .rounded, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.vertical, 15)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(fill))
+            .shadow(color: AppTheme.dropShadow, radius: 14, x: 0, y: 7)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+    }
+}
+
+/// 次级按钮：浅色底 + 细描边，用于「语音记录」这类并列操作。
+struct SoftSecondaryButtonStyle: ButtonStyle {
+    var tint: Color = AppTheme.warm
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            .foregroundColor(tint)
+            .padding(.vertical, 15)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(AppTheme.warmSoft)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(tint.opacity(0.25), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+    }
+}
 
 @main
 struct EmotionAnchorDiaryApp: App {
@@ -146,37 +325,87 @@ struct EmotionAnchorDiaryApp: App {
 private struct OnboardingView: View {
     let onContinue: () -> Void
 
+    private let items: [(symbol: String, text: String, tint: Color)] = [
+        ("lock.shield", "日记只保存在这台设备上，正文加密存储", AppTheme.accent),
+        ("icloud.slash", "云端 AI 分析默认关闭；开启后也只发送摘要，不发送全文", AppTheme.accent),
+        ("key", "内置 DeepSeek / OpenAI 直连，密钥在“设置”里填，保存在系统钥匙串", AppTheme.warm),
+        ("mic", "语音转文字在本机完成，需要麦克风与语音识别权限", AppTheme.warm),
+        ("square.and.arrow.up", "可随时导出日记；“删除全部数据”会同时清除密钥，不可恢复", AppTheme.accent)
+    ]
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Label("日记只保存在这台设备上，正文加密存储", systemImage: "lock.shield")
-                    Label("云端 AI 分析默认关闭；开启后也只发送摘要，不发送全文", systemImage: "icloud.slash")
-                    Label("内置 DeepSeek / OpenAI 直连，密钥在“设置”里填，保存在系统钥匙串", systemImage: "key")
-                    Label("语音转文字在本机完成，需要麦克风与语音识别权限", systemImage: "mic")
-                    Label("可随时导出日记；“删除全部数据”会同时清除密钥，不可恢复", systemImage: "square.and.arrow.up")
-                } header: {
-                    VStack(spacing: 8) {
+            ScrollView {
+                VStack(spacing: 26) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "book.closed.fill")
+                            .font(.system(size: 42))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(AppTheme.accent)
+                            .padding(18)
+                            .background(AppTheme.accentSoft)
+                            .clipShape(Circle())
+
                         Text("欢迎使用情绪锚点日记")
-                            .font(.title2)
-                            .fontWeight(.semibold)
+                            .font(.system(.title, design: .serif, weight: .semibold))
+                            .foregroundStyle(AppTheme.ink)
                         Text("开始之前，了解你的数据如何被保护")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.inkSoft)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.top, 32)
+
+                    VStack(spacing: 0) {
+                        ForEach(items.indices, id: \.self) { index in
+                            if index > 0 {
+                                Divider().padding(.leading, 56)
+                            }
+                            OnboardingRow(
+                                symbol: items[index].symbol,
+                                text: items[index].text,
+                                tint: items[index].tint
+                            )
+                        }
+                    }
+                    .paperCard(padding: 6)
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
             }
+            .appScreenBackground()
             .safeAreaInset(edge: .bottom) {
                 Button("开始写日记") { onContinue() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
-                    .padding()
+                    .buttonStyle(SoftPrimaryButtonStyle())
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                     .accessibilityIdentifier("onboardingContinueButton")
             }
         }
+    }
+}
+
+private struct OnboardingRow: View {
+    let symbol: String
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(.body, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 30, height: 30)
+                .background(tint.opacity(0.13))
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
     }
 }
 
@@ -215,21 +444,43 @@ private struct AppLockGate<Content: View>: View {
             if !lockIsEnabled || isUnlocked {
                 content
             } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "lock.fill")
-                        .font(.largeTitle)
-                        .foregroundColor(.secondary)
+                VStack(spacing: 22) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 46))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(AppTheme.accent)
+                        .padding(22)
+                        .background(AppTheme.accentSoft)
+                        .clipShape(Circle())
+
                     Text("情绪锚点日记已锁定")
-                        .font(.headline)
+                        .font(.system(.title3, design: .serif, weight: .semibold))
+                        .foregroundStyle(AppTheme.ink)
+                    Text("解锁后，今天的心情只属于你")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.inkSoft)
+
                     if let message {
-                        Text(message).font(.footnote).foregroundColor(.secondary)
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.warm)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.warmSoft)
+                            .clipShape(Capsule())
                     }
+
                     Button(isAuthenticating ? "正在验证…" : "使用 Face ID 或设备密码解锁") {
                         Task { await authenticate() }
                     }
+                    .buttonStyle(SoftPrimaryButtonStyle())
                     .disabled(isAuthenticating)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
                 }
-                .padding()
+                .padding(30)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .appScreenBackground()
             }
         }
         .task {

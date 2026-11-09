@@ -35,60 +35,98 @@ struct MoodTrendView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Picker("时间范围", selection: $selectedRange) {
-                Text("7 天").tag(7)
-                Text("30 天").tag(30)
-            }
-            .pickerStyle(.segmented)
-
-            if points.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "chart.xyaxis.line").font(.largeTitle).foregroundColor(.secondary)
-                    Text("还没有心情趋势")
-                        .font(.headline)
-                    Text("保存日记并选择心情后，这里会按天显示平均心情。")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                Chart(points) { point in
-                    LineMark(
-                        x: .value("日期", point.day),
-                        y: .value("心情", point.score)
-                    )
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(Color.orange)
-
-                    PointMark(
-                        x: .value("日期", point.day),
-                        y: .value("心情", point.score)
-                    )
-                    .foregroundStyle(Color.orange)
-                }
-                .chartXScale(domain: xAxisDomain)
-                .chartYScale(domain: 1...5)
-                .chartYAxis {
-                    AxisMarks(values: [1, 2, 3, 4, 5]) { value in
-                        AxisGridLine()
-                        AxisValueLabel {
-                            if let score = value.as(Int.self), let mood = MoodOption.all.first(where: { Int($0.score) == score }) {
-                                Text(mood.tag)
-                            }
+        ScrollView {
+            VStack(spacing: 18) {
+                HStack(spacing: 6) {
+                    ForEach([7, 30], id: \.self) { range in
+                        Button {
+                            selectedRange = range
+                        } label: {
+                            Text("\(range) 天")
+                                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                                .foregroundStyle(selectedRange == range ? Color.white : AppTheme.inkSoft)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
+                                .background(
+                                    Capsule().fill(selectedRange == range ? AppTheme.accent : AppTheme.surface)
+                                )
                         }
+                        .buttonStyle(.plain)
                     }
                 }
-                .frame(height: 280)
+                .padding(5)
+                .background(Capsule().fill(AppTheme.surfaceSoft))
+                .frame(maxWidth: 260)
 
-                Text("每天多条记录会取平均值。心情刻度由你主动选择，仅用于个人回顾。")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
+                if points.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "chart.xyaxis.line")
+                            .font(.system(size: 32))
+                            .foregroundStyle(AppTheme.accent)
+                            .padding(18)
+                            .background(AppTheme.accentSoft)
+                            .clipShape(Circle())
+                        Text("还没有心情趋势")
+                            .font(.system(.headline, design: .serif, weight: .semibold))
+                            .foregroundStyle(AppTheme.ink)
+                        Text("保存日记并选择心情后，这里会按天显示平均心情。")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.inkSoft)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 48)
+                } else {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionCaption(title: "心情曲线", symbol: "chart.xyaxis.line")
+                        Chart(points) { point in
+                            AreaMark(
+                                x: .value("日期", point.day),
+                                y: .value("心情", point.score)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(AppTheme.accent.opacity(0.16))
+
+                            LineMark(
+                                x: .value("日期", point.day),
+                                y: .value("心情", point.score)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .foregroundStyle(AppTheme.accent)
+
+                            PointMark(
+                                x: .value("日期", point.day),
+                                y: .value("心情", point.score)
+                            )
+                            .foregroundStyle(AppTheme.accent)
+                        }
+                        .chartXScale(domain: xAxisDomain)
+                        .chartYScale(domain: 1...5)
+                        .chartYAxis {
+                            AxisMarks(values: [1, 2, 3, 4, 5]) { value in
+                                AxisGridLine()
+                                AxisValueLabel {
+                                    if let score = value.as(Int.self), let mood = MoodOption.all.first(where: { Int($0.score) == score }) {
+                                        Text(mood.tag)
+                                    }
+                                }
+                            }
+                        }
+                        .frame(height: 260)
+                    }
+                    .paperCard()
+
+                    Text("每天多条记录会取平均值。心情刻度由你主动选择，仅用于个人回顾。")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.inkSoft)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            .padding(18)
         }
-        .padding()
+        .appScreenBackground()
         .navigationTitle("心情趋势")
     }
 }

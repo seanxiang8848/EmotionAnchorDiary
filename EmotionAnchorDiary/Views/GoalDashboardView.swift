@@ -15,14 +15,25 @@ struct GoalDashboardView: View {
     var body: some View {
         List {
             if goals.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "scope").font(.largeTitle).foregroundColor(.secondary)
-                    Text("还没有目标").font(.headline)
+                VStack(spacing: 12) {
+                    Image(systemName: "scope")
+                        .font(.system(size: 32))
+                        .foregroundStyle(AppTheme.accent)
+                        .padding(18)
+                        .background(AppTheme.accentSoft)
+                        .clipShape(Circle())
+                    Text("还没有目标")
+                        .font(.system(.headline, design: .serif, weight: .semibold))
+                        .foregroundStyle(AppTheme.ink)
                     Text("添加一个小目标，日记中提到关键词时会自动记录进度。")
-                        .font(.subheadline).foregroundColor(.secondary)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.inkSoft)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 36)
                 .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
             }
 
             ForEach(goals, id: \.objectID) { goal in
@@ -30,27 +41,57 @@ struct GoalDashboardView: View {
                     editingGoal = goal
                     showingEditor = true
                 } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(goal.title ?? "未命名目标")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(goal.completedDays())/\(goal.effectiveTargetDays) 天")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(goal.title ?? "未命名目标")
+                                    .font(.system(.headline, design: .serif, weight: .semibold))
+                                    .foregroundStyle(AppTheme.ink)
+                                Text(goal.goalRuleText)
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.inkSoft)
+                            }
+                            Spacer(minLength: 8)
+                            Text("\(goal.completedDays())/\(goal.effectiveTargetDays)")
+                                .font(.system(.title3, design: .rounded, weight: .semibold))
+                                .foregroundStyle(AppTheme.accent)
                         }
                         ProgressView(value: goal.progressValue)
-                        Text(goal.goalRuleText)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("关键词：\(goal.keywordList.joined(separator: "、"))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .progressViewStyle(.linear)
+                            .tint(AppTheme.accent)
+                        if !goal.keywordList.isEmpty {
+                            HStack(spacing: 6) {
+                                ForEach(Array(goal.keywordList.prefix(3)), id: \.self) { keyword in
+                                    Text(keyword)
+                                        .font(.caption2)
+                                        .foregroundStyle(AppTheme.inkSoft)
+                                        .padding(.horizontal, 9)
+                                        .padding(.vertical, 4)
+                                        .background(Capsule().fill(AppTheme.surfaceSoft))
+                                }
+                                if goal.keywordList.count > 3 {
+                                    Text("+\(goal.keywordList.count - 3)")
+                                        .font(.caption2)
+                                        .foregroundStyle(AppTheme.inkSoft)
+                                }
+                            }
+                        }
                     }
-                    .padding(.vertical, 4)
+                    .padding(14)
                     .contentShape(Rectangle())
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(AppTheme.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(AppTheme.hairline, lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                 .swipeActions {
                     Button(role: .destructive) {
                         do {
@@ -64,6 +105,9 @@ struct GoalDashboardView: View {
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .appScreenBackground()
         .navigationTitle("目标追踪")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -71,7 +115,8 @@ struct GoalDashboardView: View {
                     editingGoal = nil
                     showingEditor = true
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(AppTheme.accent)
                 }
                 .accessibilityLabel("添加目标")
             }
@@ -116,25 +161,36 @@ private struct GoalEditorView: View {
 
     var body: some View {
         Form {
-            Section("目标内容") {
+            Section {
                 TextField("例如：每天散步", text: $title)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.ink)
                     .textInputAutocapitalization(.none)
                 TextField("关键词，用逗号分隔", text: $keywordsText)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.ink)
                     .textInputAutocapitalization(.never)
+            } header: {
+                SectionCaption(title: "目标内容", symbol: "pencil")
             }
-            Section("进度目标") {
+            .listRowBackground(AppTheme.surface)
+            .listRowSeparatorTint(AppTheme.hairline)
+
+            Section {
                 Stepper("周期：最近 \(periodDays) 天", value: $periodDays, in: 1...30)
                 Stepper("周期内完成：\(targetFrequency) 天", value: $targetFrequency, in: 1...max(1, periodDays))
                 Text("日记正文包含任一关键词时算作当天完成。同一天写多篇只算一天，超出周期的记录不再计入。")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AppTheme.inkSoft)
+            } header: {
+                SectionCaption(title: "进度目标", symbol: "chart.bar")
             }
             .onChange(of: periodDays) { newValue in
                 if targetFrequency > newValue { targetFrequency = newValue }
             }
+            .listRowBackground(AppTheme.surface)
+            .listRowSeparatorTint(AppTheme.hairline)
         }
+        .scrollContentBackground(.hidden)
+        .appScreenBackground()
         .keyboardDoneToolbar()
         .navigationTitle(goal == nil ? "新建目标" : "编辑目标")
         .navigationBarTitleDisplayMode(.inline)

@@ -11,80 +11,177 @@ struct DiaryEntryView: View {
     @State private var isJournalFocused: Bool = false
     @AppStorage("allowCloudAnalysis") private var allowCloudAnalysis = false
 
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 · EEEE"
+        return formatter
+    }()
+
+    private var todayCaption: String { Self.dayFormatter.string(from: Date()) }
+
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 20) {
                     if let banner = viewModel.feedbackBanner {
-                        Text(banner.message)
-                            .font(.footnote)
-                            .foregroundColor(banner.isError ? .red : .green)
-                            .padding(8)
-                            .frame(maxWidth: .infinity)
-                            .background(banner.isError ? Color.red.opacity(0.1) : Color.green.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    Text("今天的心情在哪儿？")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-
-                    HStack {
-                        Button("查看历史条目") {
-                            showSavedEntries.toggle()
+                        HStack(spacing: 10) {
+                            Image(systemName: banner.isError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(banner.isError ? AppTheme.warm : AppTheme.accent)
+                            Text(banner.message)
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
                         }
-                        NavigationLink("目标追踪") {
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(banner.isError ? AppTheme.warmSoft : AppTheme.accentSoft)
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(todayCaption)
+                            .font(.system(.caption, design: .rounded, weight: .medium))
+                            .foregroundStyle(AppTheme.inkSoft)
+                        Text("今天的心情在哪儿？")
+                            .font(.system(.largeTitle, design: .serif, weight: .semibold))
+                            .foregroundStyle(AppTheme.ink)
+                        Text("写下来，就已经轻了一点。")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.inkSoft)
+                    }
+                    .padding(.top, 4)
+
+                    HStack(spacing: 10) {
+                        Button {
+                            showSavedEntries.toggle()
+                        } label: {
+                            QuickActionCard(title: "查看历史条目", symbol: "clock.arrow.circlepath", tint: AppTheme.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("查看历史条目")
+                        .frame(maxWidth: .infinity)
+
+                        NavigationLink {
                             GoalDashboardView()
                                 .environment(\.managedObjectContext, viewModel.viewContext)
+                        } label: {
+                            QuickActionCard(title: "目标追踪", symbol: "scope", tint: AppTheme.warm)
                         }
-                        NavigationLink("心情趋势") {
+                        .accessibilityLabel("目标追踪")
+                        .frame(maxWidth: .infinity)
+
+                        NavigationLink {
                             MoodTrendView()
                                 .environment(\.managedObjectContext, viewModel.viewContext)
+                        } label: {
+                            QuickActionCard(title: "心情趋势", symbol: "chart.xyaxis.line", tint: AppTheme.accent)
+                        }
+                        .accessibilityLabel("心情趋势")
+                        .frame(maxWidth: .infinity)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionCaption(title: "写下此刻", symbol: "square.and.pencil")
+                        JournalTextView(text: $viewModel.journalText, isFocused: $isJournalFocused)
+                            // 明确宽高：固定高度让 UITextView 自己滚动，避免与外层 ScrollView 抢手势。
+                            .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 210)
+                            .background(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(AppTheme.surface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(AppTheme.hairline, lineWidth: 1)
+                            )
+                            .overlay(alignment: .topLeading) {
+                                if viewModel.journalText.isEmpty {
+                                    Text("今天发生了什么？慢慢写，只有你能看到。")
+                                        .font(.subheadline)
+                                        .foregroundStyle(AppTheme.inkSoft)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 16)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionCaption(title: "此刻的心情", symbol: "heart.circle")
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(MoodOption.all) { mood in
+                                    Button {
+                                        viewModel.selectedMoodTag = mood.tag
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: AppTheme.moodSymbol(mood.tag))
+                                                .font(.caption)
+                                            Text(mood.tag)
+                                                .font(.subheadline.weight(.medium))
+                                        }
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 9)
+                                        .background(
+                                            Capsule().fill(
+                                                viewModel.selectedMoodTag == mood.tag
+                                                    ? AppTheme.moodColor(mood.tag)
+                                                    : AppTheme.surfaceSoft
+                                            )
+                                        )
+                                        .foregroundStyle(
+                                            viewModel.selectedMoodTag == mood.tag
+                                                ? Color.white
+                                                : AppTheme.ink
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.vertical, 2)
                         }
                     }
-                    .font(.subheadline)
 
-                    // 用 UIKit 的 UITextView 替代 SwiftUI TextEditor：
-                    // TextEditor 嵌在 ScrollView 里（尤其深色模式、键盘弹起、页面内容变多时）
-                    // 会出现"已键入文字不绘制 / 被滚出可视区"的渲染缺陷，上一轮改 min/max 高度
-                    // 只是缓解，AI 版本页面变长后再次复现。UITextView 自管文字色、背景与滚动。
-                    JournalTextView(text: $viewModel.journalText, isFocused: $isJournalFocused)
-                        // 明确宽高：UIViewRepresentable 不保证横向撑满，
-                        // 固定高度让 UITextView 自己滚动，避免与外层 ScrollView 抢手势。
-                        .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2)))
-
-                    Picker("此刻的心情", selection: $viewModel.selectedMoodTag) {
-                        ForEach(MoodOption.all) { mood in
-                            Text(mood.tag).tag(mood.tag)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(AppTheme.accent)
+                            Toggle("允许 AI 云端分析", isOn: $allowCloudAnalysis)
+                                .font(.system(.subheadline, design: .rounded, weight: .medium))
+                                .foregroundStyle(AppTheme.ink)
+                                .tint(AppTheme.accent)
                         }
-                    }
-                    .pickerStyle(.menu)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Toggle("允许 AI 云端分析", isOn: $allowCloudAnalysis)
                         Text(allowCloudAnalysis
                              ? "开启后只发送本机提取的摘要（最多 3 句、300 字）与目标结构，不发送完整日记正文。"
                              : "关闭时，日记仅保存在本机，并使用本地共情文案。")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(AppTheme.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         if allowCloudAnalysis && !viewModel.isAIReady {
-                            Text("还没有配置 API Key。点右上角齿轮 → AI 服务，选 DeepSeek 填 Key 就能接管情绪与目标分析。")
-                                .font(.caption)
-                                .foregroundColor(.orange)
+                            HStack(alignment: .top, spacing: 6) {
+                                Image(systemName: "key.fill")
+                                Text("还没有配置 API Key。点右上角齿轮 → AI 服务，选 DeepSeek 填 Key 就能接管情绪与目标分析。")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.warm)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .paperCard(padding: 14, radius: 18)
 
                     HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 10) {
                             Button(action: viewModel.toggleRecording) {
-                                Label(viewModel.isRecording ? "停止录音" : "语音记录", systemImage: viewModel.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(viewModel.isRecording ? Color.red.opacity(0.8) : Color.orange)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(12)
+                                Label(
+                                    viewModel.isRecording ? "停止录音" : "语音记录",
+                                    systemImage: viewModel.isRecording ? "stop.circle.fill" : "mic.circle.fill"
+                                )
                             }
+                            .buttonStyle(SoftSecondaryButtonStyle())
+                            .accessibilityLabel(viewModel.isRecording ? "停止录音" : "语音记录")
 
                             if viewModel.isRecording {
                                 // 计时与波形由子视图自持：每秒重渲染只发生在这个小组件里，
@@ -92,6 +189,7 @@ struct DiaryEntryView: View {
                                 RecordingIndicatorView()
                             }
                         }
+                        .frame(maxWidth: .infinity)
 
                         Button(action: {
                             isJournalFocused = false
@@ -100,27 +198,29 @@ struct DiaryEntryView: View {
                             if viewModel.isProcessing {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
                             } else {
-                                Text("保存并生成共情")
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
+                                HStack(spacing: 8) {
+                                    Image(systemName: "heart.fill")
+                                    Text("保存并生成共情")
+                                }
                             }
                         }
-                        .background(viewModel.isProcessing ? Color.gray : Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
+                        .buttonStyle(SoftPrimaryButtonStyle())
+                        .accessibilityLabel("保存并生成共情")
                         .disabled(viewModel.isProcessing)
+                        .frame(maxWidth: .infinity)
                     }
 
                     if viewModel.isProcessing {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 8) {
                             ProgressView().scaleEffect(0.7)
                             Text("正在读取情绪与目标…")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(AppTheme.inkSoft)
                         }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(AppTheme.surfaceSoft))
                     }
 
                     if let analysis = viewModel.analysis {
@@ -135,10 +235,14 @@ struct DiaryEntryView: View {
                         GoalInsightCard(snapshots: viewModel.goalSnapshots)
                     }
                 }
-                .padding()
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
+            .appScreenBackground()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("情绪锚点")
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear { viewModel.refreshAIStatus() }
             .toolbar {
                 // 键盘上的「完成」由 JournalTextView 自带的 inputAccessoryView 提供：
@@ -146,6 +250,7 @@ struct DiaryEntryView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: AppSettingsView(viewModel: viewModel)) {
                         Image(systemName: "gearshape")
+                            .foregroundStyle(AppTheme.accent)
                     }
                     .accessibilityLabel("设置")
                 }
@@ -155,6 +260,39 @@ struct DiaryEntryView: View {
             EntryListView()
                 .environment(\.managedObjectContext, viewModel.viewContext)
         }
+    }
+}
+
+/// 首页三个快捷入口：图标 + 文字的小卡片，替代原先一排裸按钮。
+private struct QuickActionCard: View {
+    let title: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(.title3, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 34, height: 34)
+                .background(tint.opacity(0.13))
+                .clipShape(Circle())
+            Text(title)
+                .font(.system(.caption, design: .rounded, weight: .medium))
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(AppTheme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.hairline, lineWidth: 1)
+        )
     }
 }
 
@@ -184,15 +322,16 @@ private struct JournalTextView: UIViewRepresentable {
         textView.accessibilityIdentifier = "diary-entry-editor"
         textView.font = .preferredFont(forTextStyle: .body)
         textView.adjustsFontForContentSizeCategory = true
-        textView.textColor = .label
-        textView.backgroundColor = .secondarySystemBackground
-        textView.tintColor = .systemBlue
+        textView.textColor = AppTheme.inkUI
+        // 背景交给 SwiftUI 层的纸感卡片，深浅色切换时自动跟着主题走。
+        textView.backgroundColor = .clear
+        textView.tintColor = AppTheme.accentUI
         textView.text = text
         textView.isScrollEnabled = true
         textView.alwaysBounceVertical = false
-        textView.layer.cornerRadius = 12
+        textView.layer.cornerRadius = 18
         textView.clipsToBounds = true
-        textView.textContainerInset = UIEdgeInsets(top: 10, left: 8, bottom: 10, right: 8)
+        textView.textContainerInset = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
 
         // 自己提供键盘工具条：SwiftUI 的 .keyboard toolbar 挂在宿主视图上，
         // 对 UIViewRepresentable 内部的 firstResponder 不保证生效。
@@ -280,73 +419,97 @@ struct AnalysisCardView: View {
     let note: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Label("情绪解读", systemImage: "sparkles")
-                    .font(.headline)
-                Spacer()
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(AppTheme.accent)
+                    .frame(width: 30, height: 30)
+                    .background(AppTheme.accentSoft)
+                    .clipShape(Circle())
+                Text("情绪解读")
+                    .font(.system(.headline, design: .serif, weight: .semibold))
+                    .foregroundStyle(AppTheme.ink)
+                Spacer(minLength: 6)
                 Text(badge)
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AppTheme.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
 
-            HStack(spacing: 8) {
-                Text(analysis.emotion.label)
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(emotionColor.opacity(0.16))
-                    .foregroundColor(emotionColor)
-                    .clipShape(Capsule())
-                Text("\(analysis.emotion.score, specifier: "%.1f") / 5")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(intensityText)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(analysis.emotion.label)
+                        .font(.system(.title2, design: .serif, weight: .semibold))
+                        .foregroundStyle(emotionColor)
+                    Text(intensityText)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.inkSoft)
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text("\(analysis.emotion.score, specifier: "%.1f") / 5")
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(AppTheme.ink)
+                    ScoreBar(score: analysis.emotion.score, tint: emotionColor)
+                }
             }
 
             Text(analysis.empathy)
-                .font(.body)
+                .font(.system(.body, design: .serif))
+                .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 14)
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(emotionColor.opacity(0.65))
+                        .frame(width: 3)
+                }
 
             if !analysis.emotion.reason.isEmpty {
                 Text("判断依据：\(analysis.emotion.reason)")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AppTheme.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if !analysis.suggestions.isEmpty {
                 Divider()
                 Text("可以试试")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                ForEach(analysis.suggestions, id: \.self) { suggestion in
-                    Text("• \(suggestion)")
-                        .font(.subheadline)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.inkSoft)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(analysis.suggestions, id: \.self) { suggestion in
+                        HStack(alignment: .top, spacing: 9) {
+                            Circle()
+                                .fill(emotionColor.opacity(0.65))
+                                .frame(width: 5, height: 5)
+                                .padding(.top, 7)
+                            Text(suggestion)
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
             }
 
             if let note = note, !note.isEmpty {
                 Text(note)
                     .font(.caption2)
-                    .foregroundColor(.orange)
+                    .foregroundStyle(AppTheme.warm)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .background(AppTheme.warmSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
+        .paperCard()
     }
 
     private var emotionColor: Color {
-        switch analysis.emotion.label {
-        case "低落": return .gray
-        case "焦虑": return .orange
-        case "开心": return .yellow
-        case "有能量": return .green
-        default: return .blue
-        }
+        AppTheme.moodColor(analysis.emotion.label)
     }
 
     private var intensityText: String {
@@ -358,49 +521,79 @@ struct AnalysisCardView: View {
     }
 }
 
+/// 五格心情分值条，比一串数字更容易一眼读懂。
+private struct ScoreBar: View {
+    let score: Double
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(1...5, id: \.self) { index in
+                Capsule()
+                    .fill(Double(index) <= score.rounded() ? tint : AppTheme.surfaceSoft)
+                    .frame(width: 16, height: 5)
+            }
+        }
+    }
+}
+
 // MARK: - 目标动向卡
 
 private struct GoalInsightCard: View {
     let snapshots: [DiaryEntryViewModel.GoalProgressSnapshot]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("目标动向", systemImage: "scope")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "scope")
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(AppTheme.warm)
+                    .frame(width: 30, height: 30)
+                    .background(AppTheme.warmSoft)
+                    .clipShape(Circle())
+                Text("目标动向")
+                    .font(.system(.headline, design: .serif, weight: .semibold))
+                    .foregroundStyle(AppTheme.ink)
+            }
 
             ForEach(snapshots) { snapshot in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text(snapshot.title)
-                            .font(.subheadline.weight(.medium))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
                         Spacer()
                         Text("\(snapshot.completedDays)/\(snapshot.targetDays) 天")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(AppTheme.inkSoft)
                     }
                     ProgressView(value: snapshot.progressValue)
                         .progressViewStyle(.linear)
+                        .tint(AppTheme.accent)
                     if let note = snapshot.note, !note.isEmpty {
-                        Text(note)
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "sparkles")
+                            Text(note)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.warm)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.vertical, 2)
+                .padding(12)
+                .background(AppTheme.surfaceSoft)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
-        .padding()
-        .background(Color.blue.opacity(0.06))
-        .cornerRadius(12)
+        .paperCard()
     }
 }
 
 /// 录音中的计时 + 波形指示。
 ///
 /// 每秒刷新只发生在这个子视图内部（自持 Timer 与状态），
-/// 不再通过 ViewModel 的 @Published 触发整页重渲染——
-/// 否则手动输入日记时每秒钟页面重算会让 TextEditor 的光标/内容显示异常。
+/// 不会通过 ViewModel 的 @Published 触发整页重渲染——
+/// 否则手动输入日记时每秒钟页面重算会让输入框的光标/内容显示异常。
 private struct RecordingIndicatorView: View {
     @State private var elapsedSeconds: Int = 0
     @State private var samples: [Double] = Array(repeating: 0.3, count: 12)
@@ -408,19 +601,25 @@ private struct RecordingIndicatorView: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("录音中：\(elapsedSeconds)s")
-                .font(.caption)
-                .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle().fill(AppTheme.warm).frame(width: 7, height: 7)
+                Text("录音中：\(elapsedSeconds)s")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.warm)
+            }
             HStack(spacing: 4) {
                 ForEach(Array(samples.enumerated()), id: \.offset) { _, sample in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.orange.opacity(0.7))
-                        .frame(width: 4, height: CGFloat(20 + sample * 40))
+                    Capsule()
+                        .fill(AppTheme.warm.opacity(0.75))
+                        .frame(width: 4, height: CGFloat(10 + sample * 26))
                 }
             }
-            .frame(height: 40)
+            .frame(height: 36)
         }
+        .padding(10)
+        .background(AppTheme.warmSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onReceive(timer) { _ in
             elapsedSeconds += 1
             samples = (0..<12).map { _ in Double.random(in: 0.2...0.9) }
@@ -429,6 +628,17 @@ private struct RecordingIndicatorView: View {
 }
 
 // MARK: - 设置
+
+private struct SettingsSectionHeader: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        Label(title, systemImage: symbol)
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            .foregroundStyle(AppTheme.inkSoft)
+    }
+}
 
 struct AppSettingsView: View {
     @ObservedObject var viewModel: DiaryEntryViewModel
@@ -460,7 +670,7 @@ struct AppSettingsView: View {
 
     var body: some View {
         Form {
-            Section("AI 服务") {
+            Section {
                 Picker("服务商", selection: $provider) {
                     ForEach(AIProvider.allCases) { item in
                         Text(item.displayName).tag(item)
@@ -473,63 +683,81 @@ struct AppSettingsView: View {
                 }
 
                 TextField("模型", text: $modelText)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.ink)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 TextField("API 地址（https）", text: $baseURLText)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.ink)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
                 SecureField("API Key", text: $apiKey)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.ink)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
 
                 Button {
                     saveAndTestConnection()
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         if isTestingConnection {
                             ProgressView().scaleEffect(0.7)
                         }
                         Text(isTestingConnection ? "正在测试连接…" : "保存并测试连接")
+                            .fontWeight(.medium)
                     }
                 }
                 .disabled(isTestingConnection)
+                .foregroundStyle(AppTheme.accent)
 
                 Toggle("保存日记时使用 AI 分析", isOn: $allowCloudAnalysis)
+                    .tint(AppTheme.accent)
 
                 if let status = aiStatusMessage {
                     Text(status)
                         .font(.caption)
-                        .foregroundColor(aiStatusIsError ? .red : .green)
+                        .foregroundStyle(aiStatusIsError ? AppTheme.warm : AppTheme.accent)
                         .fixedSize(horizontal: false, vertical: true)
+                        .padding(10)
+                        .background(aiStatusIsError ? AppTheme.warmSoft : AppTheme.accentSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
                 Text("密钥只保存在本机钥匙串。\(provider.keyHint)")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AppTheme.inkSoft)
 
                 Button("删除本机 API Key", role: .destructive) {
                     deleteAPIKey()
                 }
+            } header: {
+                SettingsSectionHeader(title: "AI 服务", symbol: "sparkles")
             }
+            .listRowBackground(AppTheme.surface)
+            .listRowSeparatorTint(AppTheme.hairline)
 
-            Section("隐私") {
+            Section {
                 Toggle("启动时使用 Face ID 或设备密码", isOn: $requireAppUnlock)
                     .accessibilityIdentifier("app-lock-toggle")
+                    .tint(AppTheme.accent)
                 Text("AI 云端分析默认关闭。开启后，应用会先在本机提取摘要（最多 3 句、300 字）再发送，完整日记仍只保存在本机；关闭或失败时使用本地共情文案。")
                     .font(.footnote)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(AppTheme.inkSoft)
                 Button("导出日记") {
                     prepareExport()
                 }
+                .foregroundStyle(AppTheme.accent)
                 Button("删除所有本地日记和目标…", role: .destructive) {
                     confirmDeleteAll = true
                 }
+            } header: {
+                SettingsSectionHeader(title: "隐私", symbol: "lock.shield")
             }
+            .listRowBackground(AppTheme.surface)
+            .listRowSeparatorTint(AppTheme.hairline)
         }
+        .scrollContentBackground(.hidden)
+        .appScreenBackground()
         .keyboardDoneToolbar()
         .navigationTitle("设置")
         .alert(statusMessage ?? "", isPresented: $showMessage) {
