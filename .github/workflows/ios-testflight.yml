@@ -1,7 +1,9 @@
 # TestFlight 真机体验流水线（手动触发）
 # 用法：仓库 → Actions → iOS TestFlight Upload → Run workflow
-# 流水线会自动: 打包 → 上传 → 等 Apple 处理完 → 把构建加入测试组
-# 处理完成后手机 TestFlight 直接出现「更新」，无需去网页手动分发
+# 流水线会自动: 打包 → 上传 → 等 Apple 处理完 → 把构建加入测试组 → 提交 Beta 审核
+# 最后一步不能省：本账号手机 TestFlight 用的是邮箱邀请的「外部测试员」，
+# 构建加入测试组后状态会停在「准备提交」(READY_FOR_BETA_SUBMISSION)，
+# 不提交 Beta 审核，手机永远收不到更新（2026-11-10 build 12 卡了一天就是这个原因）。
 #
 # 注意: 请不要用 Re-run 重跑失败的运行（Re-run 沿用同一 run_number，
 #       会导致 build number 重复而被 Apple 拒收）。要点右上角的 Run workflow 新建一次。
@@ -27,6 +29,10 @@ on:
         description: '等待 Apple 处理的最长分钟数'
         required: false
         default: '40'
+      submit_review:
+        description: '自动提交 Beta 审核（外部测试员必开，填 false 关闭）'
+        required: false
+        default: 'true'
 
 jobs:
   build-upload:
@@ -186,3 +192,15 @@ jobs:
           else
             echo "未检测到 ruby，跳过自动分发。请手动在 App Store Connect -> TestFlight 把构建加入测试组。"
           fi
+
+      # 外部测试员（邮箱邀请）不是 ASC 团队成员，加不进内部组，只能走
+      # 「指派个人测试员 + Beta App Review」。漏掉这步，构建会一直显示
+      # 「准备提交」/ READY_FOR_BETA_SUBMISSION，手机 TestFlight 收不到更新。
+      - name: 提交 Beta 审核（外部测试员必需）
+        if: ${{ github.event.inputs.submit_review == 'true' }}
+        env:
+          ASC_BUNDLE_ID: com.emotionanchor.diary
+          ASC_BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          ruby .github/scripts/asc_submit_review.rb
