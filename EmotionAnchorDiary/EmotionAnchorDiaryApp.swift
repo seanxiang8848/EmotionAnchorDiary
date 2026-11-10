@@ -5,20 +5,21 @@ import LocalAuthentication
 
 // MARK: - 设计系统「静页 Quiet Page」
 
-/// 暖纸质感 + 暮色青绿。所有颜色都是动态色，深浅模式分别调过对比度，
+/// 浅色暖纸质感（Quiet Page），深色近黑暖灯（Nocturne Soliloquy）。
+/// 所有颜色都是动态色，深浅模式分别调过对比度，
 /// 不依赖系统默认灰，避免深色模式下卡片变成一块死黑。
 enum AppTheme {
-    static let canvas = palette(0xF6F3EC, 0x10171B)
-    static let surface = palette(0xFFFFFF, 0x1B2529)
-    static let surfaceSoft = palette(0xEFEDE4, 0x223037)
-    static let ink = palette(0x27312D, 0xEBF1EB)
-    static let inkSoft = palette(0x77827C, 0x9DAFA8)
-    static let hairline = palette(0xE5E2D8, 0x2C3A3E)
-    static let accent = palette(0x2F6B5A, 0x86CDB2)
-    static let accentSoft = palette(0xE3F0E8, 0x1C3730)
+    static let canvas = palette(0xF6F3EC, 0x0F1418)
+    static let surface = palette(0xFFFFFF, 0x171C20)
+    static let surfaceSoft = palette(0xEFEDE4, 0x1B2024)
+    static let ink = palette(0x27312D, 0xE9E4DA)
+    static let inkSoft = palette(0x77827C, 0x8A9AA5)
+    static let hairline = palette(0xE5E2D8, 0x272727)
+    static let accent = palette(0x2F6B5A, 0xB8C9D4)
+    static let accentSoft = palette(0xE3F0E8, 0x1A2229)
     static let warm = palette(0xD9815C, 0xE8A681)
-    static let warmSoft = palette(0xFBEBE0, 0x3A2A24)
-    static let topGlow = palette(0xE8F0E7, 0x16292C)
+    static let warmSoft = palette(0xFBEBE0, 0x2A1F1A)
+    static let topGlow = palette(0xE8F0E7, 0x1A1512)
 
     /// 编辑器专用：按当前外观解析好的**静态**不透明色。
     /// 动态 UIColor 一旦进入 UITextView 的 textStorage / typingAttributes，
@@ -29,17 +30,17 @@ enum AppTheme {
     }
 
     static func editorInk(for style: UIUserInterfaceStyle) -> UIColor {
-        style == .dark ? UIColor(hex: 0xEBF1EB) : UIColor(hex: 0x27312D)
+        style == .dark ? UIColor(hex: 0xE9E4DA) : UIColor(hex: 0x27312D)
     }
 
     static func editorTint(for style: UIUserInterfaceStyle) -> UIColor {
-        style == .dark ? UIColor(hex: 0x86CDB2) : UIColor(hex: 0x2F6B5A)
+        style == .dark ? UIColor(hex: 0xE8A681) : UIColor(hex: 0x2F6B5A)
     }
 
     static var dropShadow: Color {
         Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
-                ? UIColor.black.withAlphaComponent(0.42)
+                ? UIColor.clear
                 : UIColor(red: 0.16, green: 0.22, blue: 0.18, alpha: 0.10)
         })
     }
@@ -70,11 +71,11 @@ enum AppTheme {
 
     static func moodColor(_ tag: String) -> Color {
         switch tag {
-        case "低落": return palette(0x7B8CA6, 0x9FB4D0)
+        case "低落": return palette(0x7B8CA6, 0x8A9BB0)
         case "焦虑": return palette(0xD98F6B, 0xE8A681)
-        case "开心": return palette(0xD3A044, 0xEDC36B)
-        case "有能量": return palette(0x6BA268, 0x8FCB8B)
-        default: return palette(0x5B9E97, 0x7FC8C0)
+        case "开心": return palette(0xD3A044, 0xC9B07A)
+        case "有能量": return palette(0x6BA268, 0xA9B392)
+        default: return palette(0x5B9E97, 0x9AADB8)
         }
     }
 
@@ -107,14 +108,10 @@ private extension UIColor {
 }
 
 extension View {
-    /// 全屏背景：顶部一层极淡的晨光，落在暖纸底色上。
+    /// 全屏背景：浅色顶部一层极淡的晨光；深色为右上角暖灯光晕。渐变只铺在背景层。
     func appScreenBackground() -> some View {
         background {
-            ZStack(alignment: .top) {
-                AppTheme.canvas
-                AppTheme.backgroundGradient.frame(height: 380)
-            }
-            .ignoresSafeArea()
+            AppScreenBackgroundLayers()
         }
     }
 
@@ -133,6 +130,31 @@ extension View {
     }
 }
 
+/// 浅色保持原晨光线性渐变；深色改为右上角椭圆暖光，结构仍是 ZStack + ignoresSafeArea。
+private struct AppScreenBackgroundLayers: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            AppTheme.canvas
+            if colorScheme == .dark {
+                EllipticalGradient(
+                    colors: [
+                        Color(uiColor: UIColor(hex: 0xE8A681).withAlphaComponent(0.08)),
+                        Color.clear
+                    ],
+                    center: UnitPoint(x: 0.85, y: 0.05),
+                    startRadiusFraction: 0,
+                    endRadiusFraction: 0.70
+                )
+            } else {
+                AppTheme.backgroundGradient.frame(height: 380)
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
 /// 分区小标题：图标 + 次级文字，统一页面节奏。
 struct SectionCaption: View {
     let title: String
@@ -145,43 +167,99 @@ struct SectionCaption: View {
     }
 }
 
-/// 主行动按钮：柔和渐变、按压反馈。文案由调用方提供，不改动可访问性标识。
+/// 主行动按钮：浅色柔和渐变与白字；深色为低亮度暖光描边、暖灯色字。文案由调用方提供，不改动可访问性标识。
 struct SoftPrimaryButtonStyle: ButtonStyle {
     var fill: LinearGradient = AppTheme.primaryGradient
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(.headline, design: .rounded, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.vertical, 15)
-            .frame(maxWidth: .infinity)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(fill))
-            .shadow(color: AppTheme.dropShadow, radius: 14, x: 0, y: 7)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .opacity(configuration.isPressed ? 0.92 : 1)
+        SoftPrimaryButtonBody(configuration: configuration, fill: fill)
     }
 }
 
-/// 次级按钮：浅色底 + 细描边，用于「语音记录」这类并列操作。
+private struct SoftPrimaryButtonBody: View {
+    let configuration: SoftPrimaryButtonStyle.Configuration
+    let fill: LinearGradient
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if colorScheme == .dark {
+            configuration.label
+                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .foregroundColor(Color(uiColor: UIColor(hex: 0xE8A681)))
+                .padding(.vertical, 15)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(uiColor: UIColor(hex: 0xE8A681).withAlphaComponent(configuration.isPressed ? 0.22 : 0.12)))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color(uiColor: UIColor(hex: 0xE8A681).withAlphaComponent(0.30)), lineWidth: 1)
+                )
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
+        } else {
+            configuration.label
+                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.vertical, 15)
+                .frame(maxWidth: .infinity)
+                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(fill))
+                .shadow(color: AppTheme.dropShadow, radius: 14, x: 0, y: 7)
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
+                .opacity(configuration.isPressed ? 0.92 : 1)
+        }
+    }
+}
+
+/// 次级按钮：浅色底 + 细描边；深色为幽灵按钮、夜雾灰字、350ms ease-out。用于「语音记录」这类并列操作。
 struct SoftSecondaryButtonStyle: ButtonStyle {
     var tint: Color = AppTheme.warm
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(.subheadline, design: .rounded, weight: .semibold))
-            .foregroundColor(tint)
-            .padding(.vertical, 15)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppTheme.warmSoft)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(tint.opacity(0.25), lineWidth: 1)
-            )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .opacity(configuration.isPressed ? 0.9 : 1)
+        SoftSecondaryButtonBody(configuration: configuration, tint: tint)
+    }
+}
+
+private struct SoftSecondaryButtonBody: View {
+    let configuration: SoftSecondaryButtonStyle.Configuration
+    let tint: Color
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if colorScheme == .dark {
+            configuration.label
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundColor(Color(uiColor: UIColor(hex: 0x8A9AA5)))
+                .padding(.vertical, 15)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.clear)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color(uiColor: UIColor(hex: 0x8A9AA5).withAlphaComponent(0.22)), lineWidth: 1)
+                )
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
+                .opacity(configuration.isPressed ? 0.9 : 1)
+                .animation(.easeOut(duration: 0.35), value: configuration.isPressed)
+        } else {
+            configuration.label
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundColor(tint)
+                .padding(.vertical, 15)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(AppTheme.warmSoft)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(tint.opacity(0.25), lineWidth: 1)
+                )
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
+                .opacity(configuration.isPressed ? 0.9 : 1)
+        }
     }
 }
 
@@ -328,6 +406,7 @@ struct EmotionAnchorDiaryApp: App {
 /// AI 密钥配置方式、语音权限用途以及导出/删除的影响。
 private struct OnboardingView: View {
     let onContinue: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     private let items: [(symbol: String, text: String, tint: Color)] = [
         ("lock.shield", "日记只保存在这台设备上，正文加密存储", AppTheme.accent),
@@ -345,13 +424,13 @@ private struct OnboardingView: View {
                         Image(systemName: "book.closed.fill")
                             .font(.system(size: 42))
                             .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(AppTheme.accent)
+                            .foregroundStyle(colorScheme == .dark ? AppTheme.warm : AppTheme.accent)
                             .padding(18)
-                            .background(AppTheme.accentSoft)
+                            .background(colorScheme == .dark ? AppTheme.warmSoft : AppTheme.accentSoft)
                             .clipShape(Circle())
 
                         Text("欢迎使用情绪锚点日记")
-                            .font(.system(.title, design: .serif, weight: .semibold))
+                            .font(.system(size: 28, weight: .light, design: .serif))
                             .foregroundStyle(AppTheme.ink)
                         Text("开始之前，了解你的数据如何被保护")
                             .font(.subheadline)
@@ -413,6 +492,55 @@ private struct OnboardingRow: View {
     }
 }
 
+
+/// 锁屏中央圆盘：浅色保持原青绿徽章；深色改为暖灯圆盘，默认 10 秒呼吸光环，减弱动态效果时静止。
+private struct LockLanternDisc: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var haloScale: CGFloat = 1
+    @State private var reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
+
+    var body: some View {
+        ZStack {
+            if colorScheme == .dark {
+                Circle()
+                    .fill(AppTheme.warm.opacity(0.12))
+                    .frame(width: 128, height: 128)
+                    .scaleEffect(haloScale)
+                    .opacity(reduceMotionEnabled ? 0.5 : (2.05 - Double(haloScale)))
+            }
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 46))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(colorScheme == .dark ? AppTheme.warm : AppTheme.accent)
+                .padding(22)
+                .background(colorScheme == .dark ? AppTheme.warmSoft : AppTheme.accentSoft)
+                .clipShape(Circle())
+        }
+        .frame(width: 136, height: 136)
+        .onAppear { syncHalo() }
+        .onChange(of: colorScheme) { _ in syncHalo() }
+        .onReceive(NotificationCenter.default.publisher(for: UIAccessibility.reduceMotionStatusDidChangeNotification)) { _ in
+            reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
+            syncHalo()
+        }
+    }
+
+    private func syncHalo() {
+        if colorScheme != .dark || reduceMotionEnabled {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                haloScale = 1
+            }
+            return
+        }
+        haloScale = 1
+        withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) {
+            haloScale = 1.18
+        }
+    }
+}
+
 private struct AppLockGate<Content: View>: View {
     @AppStorage("requireAppUnlock") private var requiresUnlock = false
     @Environment(\.scenePhase) private var scenePhase
@@ -449,16 +577,10 @@ private struct AppLockGate<Content: View>: View {
                 content
             } else {
                 VStack(spacing: 22) {
-                    Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 46))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(AppTheme.accent)
-                        .padding(22)
-                        .background(AppTheme.accentSoft)
-                        .clipShape(Circle())
+                    LockLanternDisc()
 
                     Text("情绪锚点日记已锁定")
-                        .font(.system(.title3, design: .serif, weight: .semibold))
+                        .font(.system(size: 28, weight: .light, design: .serif))
                         .foregroundStyle(AppTheme.ink)
                     Text("解锁后，今天的心情只属于你")
                         .font(.subheadline)

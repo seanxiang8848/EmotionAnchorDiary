@@ -9,6 +9,7 @@ struct MoodTrendView: View {
     ) private var entries: FetchedResults<Entry>
 
     @State private var selectedRange = 7
+    @Environment(\.colorScheme) private var colorScheme
 
     /// 计算逻辑放在 MoodTrendCalculator 里，便于单元测试覆盖日期边界。
     private var points: [MoodTrendCalculator.MoodPoint] {
@@ -44,18 +45,24 @@ struct MoodTrendView: View {
                         } label: {
                             Text("\(range) 天")
                                 .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                                .foregroundStyle(selectedRange == range ? Color.white : AppTheme.inkSoft)
+                                .foregroundStyle(rangeForeground(range))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 9)
                                 .background(
-                                    Capsule().fill(selectedRange == range ? AppTheme.accent : AppTheme.surface)
+                                    Capsule().fill(rangeBackground(range))
+                                )
+                                .overlay(
+                                    Capsule().stroke(rangeStroke(range), lineWidth: 1)
                                 )
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(5)
-                .background(Capsule().fill(AppTheme.surfaceSoft))
+                .background(Capsule().fill(colorScheme == .dark ? Color.clear : AppTheme.surfaceSoft))
+                .overlay(
+                    Capsule().stroke(colorScheme == .dark ? AppTheme.hairline : Color.clear, lineWidth: 1)
+                )
                 .frame(maxWidth: 260)
 
                 if points.isEmpty {
@@ -80,32 +87,73 @@ struct MoodTrendView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         SectionCaption(title: "心情曲线", symbol: "chart.xyaxis.line")
                         Chart(points) { point in
-                            AreaMark(
-                                x: .value("日期", point.day),
-                                y: .value("心情", point.score)
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .foregroundStyle(AppTheme.accent.opacity(0.16))
+                            if colorScheme == .dark {
+                                AreaMark(
+                                    x: .value("日期", point.day),
+                                    y: .value("心情", point.score)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [AppTheme.warm.opacity(0.28), AppTheme.warm.opacity(0.02)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
 
-                            LineMark(
-                                x: .value("日期", point.day),
-                                y: .value("心情", point.score)
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
-                            .foregroundStyle(AppTheme.accent)
+                                LineMark(
+                                    x: .value("日期", point.day),
+                                    y: .value("心情", point.score)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .lineStyle(StrokeStyle(lineWidth: 10, lineCap: .round))
+                                .foregroundStyle(AppTheme.warm.opacity(0.22))
 
-                            PointMark(
-                                x: .value("日期", point.day),
-                                y: .value("心情", point.score)
-                            )
-                            .foregroundStyle(AppTheme.accent)
+                                LineMark(
+                                    x: .value("日期", point.day),
+                                    y: .value("心情", point.score)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                                .foregroundStyle(AppTheme.warm)
+
+                                PointMark(
+                                    x: .value("日期", point.day),
+                                    y: .value("心情", point.score)
+                                )
+                                .foregroundStyle(AppTheme.warm)
+                            } else {
+                                AreaMark(
+                                    x: .value("日期", point.day),
+                                    y: .value("心情", point.score)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .foregroundStyle(AppTheme.accent.opacity(0.16))
+
+                                LineMark(
+                                    x: .value("日期", point.day),
+                                    y: .value("心情", point.score)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
+                                .foregroundStyle(AppTheme.accent)
+
+                                PointMark(
+                                    x: .value("日期", point.day),
+                                    y: .value("心情", point.score)
+                                )
+                                .foregroundStyle(AppTheme.accent)
+                            }
                         }
                         .chartXScale(domain: xAxisDomain)
                         .chartYScale(domain: 1...5)
                         .chartYAxis {
                             AxisMarks(values: [1, 2, 3, 4, 5]) { value in
-                                AxisGridLine()
+                                if colorScheme == .dark {
+                                    AxisGridLine().foregroundStyle(AppTheme.hairline)
+                                } else {
+                                    AxisGridLine()
+                                }
                                 AxisValueLabel {
                                     if let score = value.as(Int.self), let mood = MoodOption.all.first(where: { Int($0.score) == score }) {
                                         Text(mood.tag)
@@ -129,4 +177,24 @@ struct MoodTrendView: View {
         .appScreenBackground()
         .navigationTitle("心情趋势")
     }
+
+    private func rangeForeground(_ range: Int) -> Color {
+        if colorScheme == .dark {
+            return selectedRange == range ? AppTheme.warm : AppTheme.inkSoft
+        }
+        return selectedRange == range ? Color.white : AppTheme.inkSoft
+    }
+
+    private func rangeBackground(_ range: Int) -> Color {
+        if colorScheme == .dark {
+            return selectedRange == range ? AppTheme.warm.opacity(0.16) : Color.clear
+        }
+        return selectedRange == range ? AppTheme.accent : AppTheme.surface
+    }
+
+    private func rangeStroke(_ range: Int) -> Color {
+        guard colorScheme == .dark else { return Color.clear }
+        return selectedRange == range ? AppTheme.warm.opacity(0.35) : Color.clear
+    }
+
 }

@@ -10,6 +10,7 @@ struct DiaryEntryView: View {
     /// （FocusState 对 UIViewRepresentable 不生效，反而会让"完成"按钮收不起键盘）。
     @State private var isJournalFocused: Bool = false
     @AppStorage("allowCloudAnalysis") private var allowCloudAnalysis = false
+    @Environment(\.colorScheme) private var colorScheme
 
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -23,7 +24,7 @@ struct DiaryEntryView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 24) {
                     if let banner = viewModel.feedbackBanner {
                         HStack(spacing: 10) {
                             Image(systemName: banner.isError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
@@ -41,18 +42,19 @@ struct DiaryEntryView: View {
                         )
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text(todayCaption)
-                            .font(.system(.caption, design: .rounded, weight: .medium))
+                            .font(.system(.caption))
+                            .tracking(1.2)
                             .foregroundStyle(AppTheme.inkSoft)
                         Text("今天的心情在哪儿？")
-                            .font(.system(.largeTitle, design: .serif, weight: .semibold))
+                            .font(.system(size: 28, weight: .light, design: .serif))
                             .foregroundStyle(AppTheme.ink)
                         Text("写下来，就已经轻了一点。")
-                            .font(.subheadline)
+                            .font(.system(.subheadline, design: .serif))
                             .foregroundStyle(AppTheme.inkSoft)
                     }
-                    .padding(.top, 4)
+                    .padding(.top, 8)
 
                     HStack(spacing: 10) {
                         Button {
@@ -90,7 +92,7 @@ struct DiaryEntryView: View {
                         // 真机上更容易触发 UIKit 文字层不绘制。
                         ZStack(alignment: .topLeading) {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(AppTheme.surface)
+                                .fill(colorScheme == .dark ? AppTheme.canvas : AppTheme.surface)
                             JournalTextView(text: $viewModel.journalText, isFocused: $isJournalFocused)
                                 // 明确宽高：固定高度让 UITextView 自己滚动，避免与外层 ScrollView 抢手势。
                                 .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 210)
@@ -118,25 +120,9 @@ struct DiaryEntryView: View {
                                     Button {
                                         viewModel.selectedMoodTag = mood.tag
                                     } label: {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: AppTheme.moodSymbol(mood.tag))
-                                                .font(.caption)
-                                            Text(mood.tag)
-                                                .font(.subheadline.weight(.medium))
-                                        }
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 9)
-                                        .background(
-                                            Capsule().fill(
-                                                viewModel.selectedMoodTag == mood.tag
-                                                    ? AppTheme.moodColor(mood.tag)
-                                                    : AppTheme.surfaceSoft
-                                            )
-                                        )
-                                        .foregroundStyle(
-                                            viewModel.selectedMoodTag == mood.tag
-                                                ? Color.white
-                                                : AppTheme.ink
+                                        MoodCapsuleLabel(
+                                            tag: mood.tag,
+                                            isSelected: viewModel.selectedMoodTag == mood.tag
                                         )
                                     }
                                     .buttonStyle(.plain)
@@ -199,7 +185,7 @@ struct DiaryEntryView: View {
                         }) {
                             if viewModel.isProcessing {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: colorScheme == .dark ? AppTheme.warm : .white))
                             } else {
                                 HStack(spacing: 8) {
                                     Image(systemName: "heart.fill")
@@ -237,9 +223,9 @@ struct DiaryEntryView: View {
                         GoalInsightCard(snapshots: viewModel.goalSnapshots)
                     }
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 8)
-                .padding(.bottom, 32)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 36)
             }
             .appScreenBackground()
             .scrollDismissesKeyboard(.interactively)
@@ -271,13 +257,15 @@ private struct QuickActionCard: View {
     let symbol: String
     let tint: Color
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.system(.title3, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 34, height: 34)
-                .background(tint.opacity(0.13))
+                .background(tint.opacity(colorScheme == .dark ? 0.10 : 0.13))
                 .clipShape(Circle())
             Text(title)
                 .font(.system(.caption, design: .rounded, weight: .medium))
@@ -289,12 +277,64 @@ private struct QuickActionCard: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(AppTheme.surface)
+                .fill(colorScheme == .dark ? Color.clear : AppTheme.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.hairline, lineWidth: 1)
+                .stroke(colorScheme == .dark ? AppTheme.hairline.opacity(0.7) : AppTheme.hairline, lineWidth: 1)
         )
+    }
+}
+
+
+/// 五档心情胶囊：浅色保持实心色块；深色为透明底 + 低对比描边，选中态用该心情色的暖光描边。
+private struct MoodCapsuleLabel: View {
+    let tag: String
+    let isSelected: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: AppTheme.moodSymbol(tag))
+                .font(.caption)
+            Text(tag)
+                .font(.subheadline.weight(.medium))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(capsuleBackground)
+        .overlay(
+            Capsule().stroke(capsuleStrokeColor, lineWidth: 1)
+        )
+        .foregroundStyle(capsuleForeground)
+        .shadow(
+            color: colorScheme == .dark && isSelected ? AppTheme.moodColor(tag).opacity(0.35) : Color.clear,
+            radius: 6,
+            x: 0,
+            y: 0
+        )
+    }
+
+    private var capsuleBackground: some View {
+        Group {
+            if colorScheme == .dark {
+                Capsule().fill(Color.clear)
+            } else {
+                Capsule().fill(isSelected ? AppTheme.moodColor(tag) : AppTheme.surfaceSoft)
+            }
+        }
+    }
+
+    private var capsuleStrokeColor: Color {
+        guard colorScheme == .dark else { return Color.clear }
+        return isSelected ? AppTheme.moodColor(tag).opacity(0.85) : AppTheme.hairline
+    }
+
+    private var capsuleForeground: Color {
+        if colorScheme == .dark {
+            return isSelected ? AppTheme.moodColor(tag) : AppTheme.ink
+        }
+        return isSelected ? Color.white : AppTheme.ink
     }
 }
 
@@ -701,13 +741,25 @@ private struct GoalInsightCard: View {
 private struct RecordingIndicatorView: View {
     @State private var elapsedSeconds: Int = 0
     @State private var samples: [Double] = Array(repeating: 0.3, count: 12)
+    @State private var haloScale: CGFloat = 1
+    @State private var reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Circle().fill(AppTheme.warm).frame(width: 7, height: 7)
+                ZStack {
+                    if !reduceMotionEnabled {
+                        Circle()
+                            .stroke(AppTheme.warm.opacity(0.45), lineWidth: 1)
+                            .frame(width: 16, height: 16)
+                            .scaleEffect(haloScale)
+                            .opacity(2.1 - Double(haloScale))
+                    }
+                    Circle().fill(AppTheme.warm).frame(width: 7, height: 7)
+                }
+                .frame(width: 18, height: 18)
                 Text("录音中：\(elapsedSeconds)s")
                     .font(.caption)
                     .foregroundStyle(AppTheme.warm)
@@ -724,9 +776,31 @@ private struct RecordingIndicatorView: View {
         .padding(10)
         .background(AppTheme.warmSoft)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .onAppear { syncHaloAnimation() }
+        .onReceive(NotificationCenter.default.publisher(for: UIAccessibility.reduceMotionStatusDidChangeNotification)) { _ in
+            reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
+            syncHaloAnimation()
+        }
         .onReceive(timer) { _ in
             elapsedSeconds += 1
-            samples = (0..<12).map { _ in Double.random(in: 0.2...0.9) }
+            if !reduceMotionEnabled {
+                samples = (0..<12).map { _ in Double.random(in: 0.2...0.9) }
+            }
+        }
+    }
+
+    private func syncHaloAnimation() {
+        if reduceMotionEnabled {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                haloScale = 1
+            }
+        } else {
+            haloScale = 1
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                haloScale = 1.8
+            }
         }
     }
 }

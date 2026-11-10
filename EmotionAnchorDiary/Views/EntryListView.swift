@@ -12,10 +12,16 @@ struct EntryListView: View {
     ) private var entries: FetchedResults<Entry>
 
     @State private var deleteErrorMessage: String?
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationView {
-            Group {
+            ZStack {
+                StarTrailBackdrop()
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .opacity(colorScheme == .dark ? 1 : 0.22)
+                Group {
                 if entries.isEmpty {
                     VStack(spacing: 14) {
                         Image(systemName: "book.closed")
@@ -70,7 +76,7 @@ struct EntryListView: View {
                                 .padding(14)
                                 .background(
                                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .fill(AppTheme.surface)
+                                        .fill(rowFill(for: entry))
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -85,6 +91,7 @@ struct EntryListView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                }
                 }
             }
             .appScreenBackground()
@@ -105,6 +112,13 @@ struct EntryListView: View {
                 Text(deleteErrorMessage ?? "")
             }
         }
+    }
+
+    private func rowFill(for entry: Entry) -> Color {
+        if colorScheme == .dark {
+            return AppTheme.moodColor(entry.moodTag ?? "").opacity(0.08)
+        }
+        return AppTheme.surface
     }
 
     private func decryptedText(for entry: Entry) -> String? {
@@ -138,7 +152,8 @@ private struct EntryDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if let date = entry.createdAt {
                         Text(date, format: .dateTime.year().month().day().hour().minute())
-                            .font(.caption)
+                            .font(.system(.caption))
+                            .tracking(1.2)
                             .foregroundStyle(AppTheme.inkSoft)
                     }
                     if let moodTag = entry.moodTag, !moodTag.isEmpty {
@@ -232,6 +247,55 @@ private struct EntryDetailView: View {
             dismiss()
         } catch {
             deleteErrorMessage = error.localizedDescription
+        }
+    }
+}
+
+
+/// 历史列表背景上的静态星点与细线，无交互、无动画；减弱动态效果时同样保持静止。
+private struct StarTrailBackdrop: View {
+    private let stars: [(x: CGFloat, y: CGFloat, r: CGFloat, a: Double)] = [
+        (0.08, 0.06, 1.6, 0.22), (0.22, 0.12, 1.1, 0.16), (0.41, 0.04, 1.3, 0.18),
+        (0.63, 0.09, 1.0, 0.14), (0.81, 0.05, 1.7, 0.20), (0.93, 0.14, 1.2, 0.15),
+        (0.14, 0.28, 1.0, 0.12), (0.33, 0.22, 1.5, 0.18), (0.52, 0.31, 1.1, 0.13),
+        (0.71, 0.24, 1.8, 0.20), (0.88, 0.33, 1.2, 0.15), (0.06, 0.46, 1.3, 0.14),
+        (0.27, 0.51, 1.0, 0.11), (0.48, 0.44, 1.6, 0.17), (0.69, 0.52, 1.1, 0.13),
+        (0.86, 0.47, 1.4, 0.16), (0.17, 0.68, 1.2, 0.14), (0.39, 0.73, 1.5, 0.17),
+        (0.58, 0.65, 1.0, 0.11), (0.77, 0.71, 1.7, 0.19), (0.94, 0.63, 1.1, 0.13),
+        (0.11, 0.86, 1.3, 0.15), (0.31, 0.91, 1.0, 0.10), (0.55, 0.88, 1.4, 0.16),
+        (0.74, 0.93, 1.1, 0.12), (0.90, 0.84, 1.6, 0.18)
+    ]
+
+    private let trails: [(CGPoint, CGPoint, CGPoint)] = [
+        (CGPoint(x: 0.10, y: 0.18), CGPoint(x: 0.38, y: 0.10), CGPoint(x: 0.72, y: 0.22)),
+        (CGPoint(x: 0.18, y: 0.58), CGPoint(x: 0.50, y: 0.42), CGPoint(x: 0.88, y: 0.55)),
+        (CGPoint(x: 0.08, y: 0.82), CGPoint(x: 0.42, y: 0.70), CGPoint(x: 0.80, y: 0.88))
+    ]
+
+    var body: some View {
+        Canvas { context, size in
+            let starColor = Color(red: 233/255, green: 228/255, blue: 218/255)
+            let lineColor = Color(red: 232/255, green: 166/255, blue: 129/255)
+
+            for trail in trails {
+                var path = Path()
+                path.move(to: CGPoint(x: trail.0.x * size.width, y: trail.0.y * size.height))
+                path.addQuadCurve(
+                    to: CGPoint(x: trail.2.x * size.width, y: trail.2.y * size.height),
+                    control: CGPoint(x: trail.1.x * size.width, y: trail.1.y * size.height)
+                )
+                context.stroke(path, with: .color(lineColor.opacity(0.10)), lineWidth: 0.7)
+            }
+
+            for star in stars {
+                let rect = CGRect(
+                    x: star.x * size.width - star.r / 2,
+                    y: star.y * size.height - star.r / 2,
+                    width: star.r,
+                    height: star.r
+                )
+                context.fill(Path(ellipseIn: rect), with: .color(starColor.opacity(star.a)))
+            }
         }
     }
 }
