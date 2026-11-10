@@ -85,27 +85,29 @@ struct DiaryEntryView: View {
 
                     VStack(alignment: .leading, spacing: 10) {
                         SectionCaption(title: "写下此刻", symbol: "square.and.pencil")
-                        JournalTextView(text: $viewModel.journalText, isFocused: $isJournalFocused)
-                            // 明确宽高：固定高度让 UITextView 自己滚动，避免与外层 ScrollView 抢手势。
-                            .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 210)
-                            .background(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .fill(AppTheme.surface)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(AppTheme.hairline, lineWidth: 1)
-                            )
-                            .overlay(alignment: .topLeading) {
-                                if viewModel.journalText.isEmpty {
-                                    Text("今天发生了什么？慢慢写，只有你能看到。")
-                                        .font(.subheadline)
-                                        .foregroundStyle(AppTheme.inkSoft)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 16)
-                                        .allowsHitTesting(false)
-                                }
+                        // 卡片背景、描边、占位提示都放在容器上，不再给 UIViewRepresentable
+                        // 叠 .background/.overlay：宿主视图被合成进 SwiftUI 图层时，
+                        // 真机上更容易触发 UIKit 文字层不绘制。
+                        ZStack(alignment: .topLeading) {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(AppTheme.surface)
+                            JournalTextView(text: $viewModel.journalText, isFocused: $isJournalFocused)
+                                // 明确宽高：固定高度让 UITextView 自己滚动，避免与外层 ScrollView 抢手势。
+                                .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 210)
+                            if viewModel.journalText.isEmpty {
+                                Text("今天发生了什么？慢慢写，只有你能看到。")
+                                    .font(.subheadline)
+                                    .foregroundStyle(AppTheme.inkSoft)
+                                    .padding(.horizontal, 17)
+                                    .padding(.vertical, 16)
+                                    .allowsHitTesting(false)
                             }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 210)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(AppTheme.hairline, lineWidth: 1)
+                        )
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -298,16 +300,21 @@ private struct QuickActionCard: View {
 
 // MARK: - 日记正文输入框
 
-/// 稳定的日记正文输入控件（替代 SwiftUI TextEditor）。
+/// 稳定的日记正文输入控件。
 ///
-/// 背景：TextEditor 嵌套在 ScrollView 里时，输入过程中会出现已键入文字不绘制、
-/// 光标前内容"消失"的渲染缺陷；深色模式下默认文字/背景对比也可能失效。
-/// 上一轮把固定 height 改成 min/max 高度只是缓解，AI 版本页面内容变长后再次复现。
-/// 这里直接用 UITextView：文字色 `.label`、背景 `.secondarySystemBackground`、
-/// 光标 `.systemBlue` 都随深浅色外观自适应，滚动也由它自己管理。
+/// 真机复现记录（第三轮）：中文输入法 + 深色模式下，文字已写进 binding、
+/// 光标也随字数前进，但字形一个像素都不绘制（截图放大 4 倍、提亮 4 倍后仍是纯色）。
+/// 所以这既不是数据被清空，也不是「深色字写在深色底」的对比度问题，
+/// 而是 UIKit 文字层的字形生成 / 合成失败。SwiftUI `TextEditor` 与 iOS 17+
+/// 默认的 `UITextView` 都跑在 **TextKit 2** 上，正是这类缺陷的高发路径，
+/// 也解释了为什么模拟器全绿、真机连续两轮复现。
 ///
-/// 关键约束：updateUIView 只在外部文字真的变化时回写，否则整页重渲染
-/// 会把光标位置和中文输入法的组合输入冲掉。
+/// 本实现同时切断四条已知触发路径：
+/// 1. 用显式 NSTextStorage / NSLayoutManager 构造 UITextView，强制 **TextKit 1**；
+/// 2. 文字色、光标色按当前外观解析成静态不透明 UIColor，动态色不进 textStorage；
+/// 3. 编辑期间绝不写 textView.text（含中文组合输入 markedTextRange），
+///    只有录音转写、保存后清空这类「外部写值」才回写；
+/// 4. 去掉 UITextView 自己的 layer.cornerRadius，圆角由 SwiftUI 卡片负责。
 private struct JournalTextView: UIViewRepresentable {
     @Binding var text: String
     @Binding var isFocused: Bool
@@ -317,21 +324,32 @@ private struct JournalTextView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
+        // 手工搭一套 TextKit 1 栈：iOS 16+ 传入自定义 textContainer 即走 TextKit 1，
+        // 不会创建 TextKit 2 那层独立的文字画布（真机上偶发整层不合成）。
+        let storage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        storage.addLayoutManager(layoutManager)
+        let textContainer = NSTextContainer(size: .zero)
+        textContainer.widthTracksTextView = true
+        layoutManager.addTextContainer(textContainer)
+
+        let textView = UITextView(frame: .zero, textContainer: textContainer)
         textView.delegate = context.coordinator
         textView.accessibilityIdentifier = "diary-entry-editor"
         textView.font = .preferredFont(forTextStyle: .body)
         textView.adjustsFontForContentSizeCategory = true
-        textView.textColor = AppTheme.inkUI
-        // 背景交给 SwiftUI 层的纸感卡片，深浅色切换时自动跟着主题走。
-        textView.backgroundColor = .clear
-        textView.tintColor = AppTheme.accentUI
-        textView.text = text
         textView.isScrollEnabled = true
         textView.alwaysBounceVertical = false
-        textView.layer.cornerRadius = 18
+        // 背景交给 SwiftUI 的纸感卡片；这里只保留 UIScrollView 默认裁切，
+        // 不再给 layer 设圆角，避免文字层被 mask 掉。
+        textView.backgroundColor = .clear
         textView.clipsToBounds = true
         textView.textContainerInset = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
+
+        context.coordinator.textView = textView
+        context.coordinator.lastTextFromEditor = text
+        context.coordinator.applyEditorStyleIfNeeded(force: true)
+        context.coordinator.replaceText(with: text)
 
         // 自己提供键盘工具条：SwiftUI 的 .keyboard toolbar 挂在宿主视图上，
         // 对 UIViewRepresentable 内部的 firstResponder 不保证生效。
@@ -347,15 +365,23 @@ private struct JournalTextView: UIViewRepresentable {
         ]
         doneBar.sizeToFit()
         textView.inputAccessoryView = doneBar
-        context.coordinator.textView = textView
         return textView
     }
 
     func updateUIView(_ textView: UITextView, context: Context) {
-        // 不打断输入：键入时 binding 与 textView.text 相等，直接跳过回写。
-        if (textView.text ?? "") != text {
-            textView.text = text
+        let coordinator = context.coordinator
+        coordinator.parent = self
+        coordinator.applyEditorStyleIfNeeded()
+
+        // 用户键入时 lastTextFromEditor 与 text 相等，绝不触碰 textStorage。
+        // 只有外部写值（语音转写 / 保存后清空）才会走到这里。
+        if text != coordinator.lastTextFromEditor {
+            // 中文输入法组合输入期间延后回写，下一轮 SwiftUI 更新会补上。
+            guard textView.markedTextRange == nil else { return }
+            coordinator.replaceText(with: text)
+            coordinator.lastTextFromEditor = text
         }
+
         // 提交按钮通过 isFocused 收起键盘；键盘工具条的「完成」直接 resign。
         if isFocused && !textView.isFirstResponder {
             textView.becomeFirstResponder()
@@ -367,6 +393,9 @@ private struct JournalTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: JournalTextView
         weak var textView: UITextView?
+        /// 编辑器自己上报的最后一份文字，用来区分「用户键入」与「外部写值」。
+        var lastTextFromEditor: String = ""
+        private var appliedStyle: UIUserInterfaceStyle = .unspecified
 
         init(parent: JournalTextView) {
             self.parent = parent
@@ -376,8 +405,83 @@ private struct JournalTextView: UIViewRepresentable {
             textView?.resignFirstResponder()
         }
 
+        /// 动态 UIColor 放进 textStorage / typingAttributes 时，
+        /// iOS 17+ 有概率按错误的外观解析，导致字形以透明色绘制。
+        /// 这里统一按当前外观解析成静态色，外观切换时再刷一遍。
+        func applyEditorStyleIfNeeded(force: Bool = false) {
+            let style = AppTheme.currentInterfaceStyle
+            guard force || style != appliedStyle else { return }
+            appliedStyle = style
+            guard let textView = textView else { return }
+
+            let ink = AppTheme.editorInk(for: style)
+            let attributes = Self.textAttributes(font: textView.font, ink: ink)
+            textView.textColor = ink
+            textView.tintColor = AppTheme.editorTint(for: style)
+            textView.typingAttributes = attributes
+
+            let length = (textView.text ?? "").utf16.count
+            if length > 0 {
+                textView.textStorage.addAttribute(
+                    .foregroundColor,
+                    value: ink,
+                    range: NSRange(location: 0, length: length)
+                )
+            }
+            forceGlyphRedraw(in: textView, length: length)
+        }
+
+        /// 外部写值：整段带显式字体与前景色重建，并强制重新生成字形。
+        func replaceText(with value: String) {
+            guard let textView = textView else { return }
+            let attributes = Self.textAttributes(
+                font: textView.font,
+                ink: AppTheme.editorInk(for: AppTheme.currentInterfaceStyle)
+            )
+            textView.attributedText = NSAttributedString(string: value, attributes: attributes)
+            textView.typingAttributes = attributes
+            textView.selectedRange = NSRange(location: value.utf16.count, length: 0)
+            forceGlyphRedraw(in: textView, length: value.utf16.count)
+        }
+
+        private func forceGlyphRedraw(in textView: UITextView, length: Int) {
+            if length > 0 {
+                textView.layoutManager.invalidateDisplay(
+                    forCharacterRange: NSRange(location: 0, length: length)
+                )
+            }
+            textView.setNeedsDisplay()
+        }
+
+        private static func textAttributes(
+            font: UIFont?,
+            ink: UIColor
+        ) -> [NSAttributedString.Key: Any] {
+            [
+                .font: font ?? UIFont.preferredFont(forTextStyle: .body),
+                .foregroundColor: ink
+            ]
+        }
+
         func textViewDidChange(_ textView: UITextView) {
-            parent.text = textView.text ?? ""
+            let value = textView.text ?? ""
+            lastTextFromEditor = value
+            parent.text = value
+
+            // 保险：下一个 runloop 强制重算字形。真机上曾出现 textStorage 有文字、
+            // 布局知道宽度（光标前进）、但字形缓存没刷新的情况；这里只重绘，
+            // 不改 textStorage，不会打断中文输入法的组合输入。
+            weak var weakTextView = textView
+            DispatchQueue.main.async {
+                guard let current = weakTextView else { return }
+                let length = (current.text ?? "").utf16.count
+                if length > 0 {
+                    current.layoutManager.invalidateDisplay(
+                        forCharacterRange: NSRange(location: 0, length: length)
+                    )
+                }
+                current.setNeedsDisplay()
+            }
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {

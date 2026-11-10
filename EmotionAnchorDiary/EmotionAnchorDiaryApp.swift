@@ -20,16 +20,20 @@ enum AppTheme {
     static let warmSoft = palette(0xFBEBE0, 0x3A2A24)
     static let topGlow = palette(0xE8F0E7, 0x16292C)
 
-    static var accentUI: UIColor {
-        UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(hex: 0x86CDB2) : UIColor(hex: 0x2F6B5A)
-        }
+    /// 编辑器专用：按当前外观解析好的**静态**不透明色。
+    /// 动态 UIColor 一旦进入 UITextView 的 textStorage / typingAttributes，
+    /// iOS 17+ 真机有概率按错误外观解析，字形被画成透明色（输入框「看不见字」）。
+    static var currentInterfaceStyle: UIUserInterfaceStyle {
+        let style = UITraitCollection.current.userInterfaceStyle
+        return style == .unspecified ? UIScreen.main.traitCollection.userInterfaceStyle : style
     }
 
-    static var inkUI: UIColor {
-        UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(hex: 0xEBF1EB) : UIColor(hex: 0x27312D)
-        }
+    static func editorInk(for style: UIUserInterfaceStyle) -> UIColor {
+        style == .dark ? UIColor(hex: 0xEBF1EB) : UIColor(hex: 0x27312D)
+    }
+
+    static func editorTint(for style: UIUserInterfaceStyle) -> UIColor {
+        style == .dark ? UIColor(hex: 0x86CDB2) : UIColor(hex: 0x2F6B5A)
     }
 
     static var dropShadow: Color {

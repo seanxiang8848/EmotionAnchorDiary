@@ -91,6 +91,27 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
     }
 
+    /// 回归：外部写值（保存后清空编辑框）之后仍然可以继续键入。
+    /// 编辑器内部用「最后一份编辑器文字」区分键入与外部写值，这条路径必须持续可用。
+    func testEditorAcceptsTypingAgainAfterSaveClearsIt() throws {
+        let app = XCUIApplication()
+        launchDiary(in: app)
+
+        let editor = app.textViews["diary-entry-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText("第一段日记")
+        app.buttons["完成"].tap()
+        app.buttons["保存并生成共情"].tap()
+        XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
+
+        editor.tap()
+        editor.typeText("第二段日记")
+        let predicate = NSPredicate(format: "value CONTAINS %@", "第二段日记")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+    }
+
     func testCloudAnalysisDisabledUsesLocalEmpathy() throws {
         let app = XCUIApplication()
         launchDiary(in: app, extraArguments: ["-ui-testing-ai-success"])
