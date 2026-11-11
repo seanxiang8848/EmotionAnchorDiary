@@ -384,7 +384,7 @@ struct EmotionAnchorDiaryApp: App {
     var body: some Scene {
         WindowGroup {
             AppLockGate {
-                DiaryEntryView(viewModel: diaryViewModel)
+                DiaryHomeTabs(viewModel: diaryViewModel)
             }
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .sheet(isPresented: Binding(

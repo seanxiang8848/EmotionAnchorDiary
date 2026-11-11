@@ -3,6 +3,51 @@ import UIKit
 import CoreData
 import UniformTypeIdentifiers
 
+/// 主导航：书写、回顾、时间轴分开呈现，避免把所有功能挤在单页。
+struct DiaryHomeTabs: View {
+    @ObservedObject var viewModel: DiaryEntryViewModel
+
+    var body: some View {
+        TabView {
+            DiaryEntryView(viewModel: viewModel)
+                .tabItem { Label("写日记", systemImage: "square.and.pencil") }
+            ReflectionOverviewView()
+                .tabItem { Label("回顾", systemImage: "chart.xyaxis.line") }
+            EntryListView()
+                .tabItem { Label("时间轴", systemImage: "clock") }
+        }
+        .tint(AppTheme.warm)
+    }
+}
+
+/// 将心情趋势与目标追踪集中在一个独立的回顾页面。
+private struct ReflectionOverviewView: View {
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("回望这些日子")
+                            .font(.system(size: 30, weight: .light, design: .serif))
+                            .foregroundStyle(AppTheme.ink)
+                        Text("心情的起伏与正在靠近的目标。")
+                            .font(.system(.subheadline, design: .serif))
+                            .foregroundStyle(AppTheme.inkSoft)
+                    }
+                    MoodTrendView()
+                    GoalDashboardView()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+                .padding(.bottom, 32)
+            }
+            .appScreenBackground()
+            .navigationTitle("心情与目标")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
 struct DiaryEntryView: View {
     @ObservedObject var viewModel: DiaryEntryViewModel
     @State private var showSavedEntries: Bool = false
