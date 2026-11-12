@@ -83,21 +83,21 @@ emails = testers.map { |t| t.dig('attributes', 'email') }
 puts "账号测试员: #{emails.join(', ')}"
 tester_ids = testers.map { |t| t['id'] }
 
-# 1. 先看当前构建已指派的测试员
-code, body = call(:get, "/v1/builds/#{build_id}/betaTesters?limit=200")
+# 1. 先看当前构建已指派的测试员（个人测试员挂在 individualTesters 关系上）
+code, body = call(:get, "/v1/builds/#{build_id}/individualTesters?limit=200")
 assigned = code == 200 ? (JSON.parse(body)['data'] || []).map { |t| t['id'] } : []
 puts "构建当前已指派: #{assigned.empty? ? '（无）' : assigned.inspect}"
 
 # 2. 如果已有指派，先移除（触发 Apple 重新登记分发状态）
 unless assigned.empty?
-  code, body = call(:delete, "/v1/builds/#{build_id}/relationships/betaTesters",
+  code, body = call(:delete, "/v1/builds/#{build_id}/relationships/individualTesters",
                     { 'data' => assigned.map { |i| { 'type' => 'betaTesters', 'id' => i } } })
   puts code >= 200 && code < 300 ? "已从构建移除 #{assigned.size} 位测试员（准备重新指派）" : "移除失败 HTTP #{code} #{body[0, 300]}"
   sleep 3
 end
 
 # 3. 重新指派（审核已通过，Apple 此时会立即分发并发通知邮件）
-code, body = call(:post, "/v1/builds/#{build_id}/relationships/betaTesters",
+code, body = call(:post, "/v1/builds/#{build_id}/relationships/individualTesters",
                   { 'data' => tester_ids.map { |i| { 'type' => 'betaTesters', 'id' => i } } })
 if code >= 200 && code < 300
   puts "已重新指派 #{tester_ids.size} 位测试员到构建 #{build.dig('attributes', 'version')}，Apple 会立即分发并邮件通知。"
