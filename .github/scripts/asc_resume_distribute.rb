@@ -146,7 +146,8 @@ build_id   = build['id']
 build_no   = build.dig('attributes', 'version')
 log "目标构建: #{build_no} (#{build_id})"
 
-# ---- 加入测试组（带重试）----
+# ---- 加入测试组（带重试；Apple 偶发 404/500，失败不致命：
+#      内部组自动可见全部构建，外部测试员靠下面的个人指派 + Beta 审核）----
 code, body = asc_with_retry(:post, "/v1/betaGroups/#{group['id']}/relationships/builds",
                             [{ 'type' => 'builds', 'id' => build_id }])
 case code
@@ -155,8 +156,7 @@ when 200..299
 when 409
   log '构建已在该测试组中，无需重复添加。'
 else
-  log "加入测试组失败: HTTP #{code}\n#{body[0, 600]}"
-  exit 1
+  log "⚠️ 加入测试组失败: HTTP #{code}（继续执行个人指派与 Beta 审核）\n#{body[0, 400]}"
 end
 
 # ---- 指派个人测试员（带重试）----
