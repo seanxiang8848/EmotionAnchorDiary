@@ -1,8 +1,9 @@
 import SwiftUI
 import CoreData
 
+/// 时间轴页：顶部是心情趋势面板，下面按时间倒序显示历史条目。
+/// 由主导航的 NavigationStack 包裹，自身不再嵌 NavigationView。
 struct EntryListView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var viewContext
 
     // Uses the managedObjectContext injected via .environment from the presenting view
@@ -15,31 +16,43 @@ struct EntryListView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        NavigationView {
-            ZStack {
+        ZStack {
                 StarTrailBackdrop()
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                     .opacity(colorScheme == .dark ? 1 : 0.22)
-                Group {
-                if entries.isEmpty {
-                    VStack(spacing: 14) {
-                        Image(systemName: "book.closed")
-                            .font(.system(size: 32))
-                            .foregroundStyle(AppTheme.accent)
-                            .padding(18)
-                            .background(AppTheme.accentSoft)
-                            .clipShape(Circle())
-                        Text("暂无记录")
-                            .font(.system(.headline, design: .serif, weight: .semibold))
-                            .foregroundStyle(AppTheme.ink)
-                        Text("写下一条心情，稍后可在这里查看")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.inkSoft)
+                List {
+                    // 心情趋势固定在页面顶部
+                    Section {
+                        MoodTrendView()
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
+
+                    if entries.isEmpty {
+                        Section {
+                            VStack(spacing: 14) {
+                                Image(systemName: "book.closed")
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(AppTheme.accent)
+                                    .padding(18)
+                                    .background(AppTheme.accentSoft)
+                                    .clipShape(Circle())
+                                Text("暂无记录")
+                                    .font(.system(.headline, design: .serif, weight: .semibold))
+                                    .foregroundStyle(AppTheme.ink)
+                                Text("写下一条心情，稍后可在这里查看")
+                                    .font(.subheadline)
+                                    .foregroundStyle(AppTheme.inkSoft)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 36)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        }
+                    } else {
+                        Section {
                         ForEach(entries, id: \.objectID) { entry in
                             NavigationLink(destination: EntryDetailView(entry: entry)) {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -88,21 +101,15 @@ struct EntryListView: View {
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         }
                         .onDelete(perform: deleteEntries)
+                        }
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
                 }
-                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
             .appScreenBackground()
-            .navigationTitle("历史条目")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }
-                        .foregroundStyle(AppTheme.accent)
-                }
-            }
+            .navigationTitle("时间轴")
+            .navigationBarTitleDisplayMode(.large)
             .alert("删除失败", isPresented: Binding(
                 get: { deleteErrorMessage != nil },
                 set: { if !$0 { deleteErrorMessage = nil } }
@@ -111,7 +118,6 @@ struct EntryListView: View {
             } message: {
                 Text(deleteErrorMessage ?? "")
             }
-        }
     }
 
     private func rowFill(for entry: Entry) -> Color {

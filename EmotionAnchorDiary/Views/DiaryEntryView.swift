@@ -3,7 +3,7 @@ import UIKit
 import CoreData
 import UniformTypeIdentifiers
 
-/// 主导航：书写、回顾、时间轴分开呈现，避免把所有功能挤在单页。
+/// 主导航：书写、目标、时间轴三个一级页面。
 struct DiaryHomeTabs: View {
     @ObservedObject var viewModel: DiaryEntryViewModel
 
@@ -11,50 +11,24 @@ struct DiaryHomeTabs: View {
         TabView {
             DiaryEntryView(viewModel: viewModel)
                 .tabItem { Label("写日记", systemImage: "square.and.pencil") }
-            ReflectionOverviewView()
-                .tabItem { Label("回顾", systemImage: "chart.xyaxis.line") }
-            EntryListView()
-                .tabItem { Label("时间轴", systemImage: "clock") }
+            NavigationStack {
+                GoalDashboardView()
+            }
+            .tabItem { Label("目标", systemImage: "scope") }
+            NavigationStack {
+                EntryListView()
+            }
+            .tabItem { Label("时间轴", systemImage: "clock") }
         }
         .tint(AppTheme.warm)
     }
 }
 
-/// 将心情趋势与目标追踪集中在一个独立的回顾页面。
-private struct ReflectionOverviewView: View {
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("回望这些日子")
-                            .font(.system(size: 30, weight: .light, design: .serif))
-                            .foregroundStyle(AppTheme.ink)
-                        Text("心情的起伏与正在靠近的目标。")
-                            .font(.system(.subheadline, design: .serif))
-                            .foregroundStyle(AppTheme.inkSoft)
-                    }
-                    MoodTrendView()
-                    GoalDashboardView()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .padding(.bottom, 32)
-            }
-            .appScreenBackground()
-            .navigationTitle("心情与目标")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-
 struct DiaryEntryView: View {
     @ObservedObject var viewModel: DiaryEntryViewModel
-    @State private var showSavedEntries: Bool = false
     /// 自定义 UITextView 自己管理第一响应者，用普通 State 同步焦点即可
     /// （FocusState 对 UIViewRepresentable 不生效，反而会让"完成"按钮收不起键盘）。
     @State private var isJournalFocused: Bool = false
-    @AppStorage("allowCloudAnalysis") private var allowCloudAnalysis = false
     @Environment(\.colorScheme) private var colorScheme
 
     private static let dayFormatter: DateFormatter = {
@@ -101,35 +75,6 @@ struct DiaryEntryView: View {
                     }
                     .padding(.top, 8)
 
-                    HStack(spacing: 10) {
-                        Button {
-                            showSavedEntries.toggle()
-                        } label: {
-                            QuickActionCard(title: "查看历史条目", symbol: "clock.arrow.circlepath", tint: AppTheme.accent)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("查看历史条目")
-                        .frame(maxWidth: .infinity)
-
-                        NavigationLink {
-                            GoalDashboardView()
-                                .environment(\.managedObjectContext, viewModel.viewContext)
-                        } label: {
-                            QuickActionCard(title: "目标追踪", symbol: "scope", tint: AppTheme.warm)
-                        }
-                        .accessibilityLabel("目标追踪")
-                        .frame(maxWidth: .infinity)
-
-                        NavigationLink {
-                            MoodTrendView()
-                                .environment(\.managedObjectContext, viewModel.viewContext)
-                        } label: {
-                            QuickActionCard(title: "心情趋势", symbol: "chart.xyaxis.line", tint: AppTheme.accent)
-                        }
-                        .accessibilityLabel("心情趋势")
-                        .frame(maxWidth: .infinity)
-                    }
-
                     VStack(alignment: .leading, spacing: 10) {
                         SectionCaption(title: "写下此刻", symbol: "square.and.pencil")
                         // 卡片背景、描边、占位提示都放在容器上，不再给 UIViewRepresentable
@@ -140,7 +85,8 @@ struct DiaryEntryView: View {
                                 .fill(colorScheme == .dark ? AppTheme.canvas : AppTheme.surface)
                             JournalTextView(text: $viewModel.journalText, isFocused: $isJournalFocused)
                                 // 明确宽高：固定高度让 UITextView 自己滚动，避免与外层 ScrollView 抢手势。
-                                .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 210)
+                                // 快捷入口挪走后腾出空间，输入框加高到 300。
+                                .frame(maxWidth: .infinity, minHeight: 300, maxHeight: 300)
                             if viewModel.journalText.isEmpty {
                                 Text("今天发生了什么？慢慢写，只有你能看到。")
                                     .font(.subheadline)
@@ -150,7 +96,7 @@ struct DiaryEntryView: View {
                                     .allowsHitTesting(false)
                             }
                         }
-                        .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 210)
+                        .frame(maxWidth: .infinity, minHeight: 300, maxHeight: 300)
                         .overlay(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .stroke(AppTheme.hairline, lineWidth: 1)
@@ -176,34 +122,6 @@ struct DiaryEntryView: View {
                             .padding(.vertical, 2)
                         }
                     }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "sparkles")
-                                .foregroundStyle(AppTheme.accent)
-                            Toggle("允许 AI 云端分析", isOn: $allowCloudAnalysis)
-                                .font(.system(.subheadline, design: .rounded, weight: .medium))
-                                .foregroundStyle(AppTheme.ink)
-                                .tint(AppTheme.accent)
-                        }
-                        Text(allowCloudAnalysis
-                             ? "开启后只发送本机提取的摘要（最多 3 句、300 字）与目标结构，不发送完整日记正文。"
-                             : "关闭时，日记仅保存在本机，并使用本地共情文案。")
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.inkSoft)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if allowCloudAnalysis && !viewModel.isAIReady {
-                            HStack(alignment: .top, spacing: 6) {
-                                Image(systemName: "key.fill")
-                                Text("还没有配置 API Key。点右上角齿轮 → AI 服务，选 DeepSeek 填 Key 就能接管情绪与目标分析。")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.warm)
-                            .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .paperCard(padding: 14, radius: 18)
 
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 10) {
@@ -234,12 +152,12 @@ struct DiaryEntryView: View {
                             } else {
                                 HStack(spacing: 8) {
                                     Image(systemName: "heart.fill")
-                                    Text("保存并生成共情")
+                                    Text("保存")
                                 }
                             }
                         }
                         .buttonStyle(SoftPrimaryButtonStyle())
-                        .accessibilityLabel("保存并生成共情")
+                        .accessibilityLabel("保存")
                         .disabled(viewModel.isProcessing)
                         .frame(maxWidth: .infinity)
                     }
@@ -289,48 +207,8 @@ struct DiaryEntryView: View {
                 }
             }
         }
-        .sheet(isPresented: $showSavedEntries) {
-            EntryListView()
-                .environment(\.managedObjectContext, viewModel.viewContext)
-        }
     }
 }
-
-/// 首页三个快捷入口：图标 + 文字的小卡片，替代原先一排裸按钮。
-private struct QuickActionCard: View {
-    let title: String
-    let symbol: String
-    let tint: Color
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(.title3, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 34, height: 34)
-                .background(tint.opacity(colorScheme == .dark ? 0.10 : 0.13))
-                .clipShape(Circle())
-            Text(title)
-                .font(.system(.caption, design: .rounded, weight: .medium))
-                .foregroundStyle(AppTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(colorScheme == .dark ? Color.clear : AppTheme.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(colorScheme == .dark ? AppTheme.hairline.opacity(0.7) : AppTheme.hairline, lineWidth: 1)
-        )
-    }
-}
-
 
 /// 五档心情胶囊：浅色保持实心色块；深色为透明底 + 低对比描边，选中态用该心情色的暖光描边。
 private struct MoodCapsuleLabel: View {
@@ -933,7 +811,7 @@ struct AppSettingsView: View {
                 .disabled(isTestingConnection)
                 .foregroundStyle(AppTheme.accent)
 
-                Toggle("保存日记时使用 AI 分析", isOn: $allowCloudAnalysis)
+                Toggle("允许 AI 云端分析", isOn: $allowCloudAnalysis)
                     .tint(AppTheme.accent)
 
                 if let status = aiStatusMessage {

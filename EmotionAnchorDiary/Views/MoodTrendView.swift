@@ -35,9 +35,10 @@ struct MoodTrendView: View {
         return start...end
     }
 
+    /// 作为「时间轴」页顶部的嵌入面板使用：不带自己的滚动容器与导航标题，
+    /// 滚动交给外层页面统一处理。
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
+        VStack(spacing: 18) {
                 HStack(spacing: 6) {
                     ForEach([7, 30], id: \.self) { range in
                         Button {
@@ -173,9 +174,6 @@ struct MoodTrendView: View {
                 Spacer(minLength: 0)
             }
             .padding(18)
-        }
-        .appScreenBackground()
-        .navigationTitle("心情趋势")
     }
 
     private func rangeForeground(_ range: Int) -> Color {

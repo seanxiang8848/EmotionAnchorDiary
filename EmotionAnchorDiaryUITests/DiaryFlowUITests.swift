@@ -28,7 +28,7 @@ final class DiaryFlowUITests: XCTestCase {
         launchDiary(in: app)
 
         XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.buttons["保存并生成共情"].exists)
+        XCTAssertTrue(app.buttons["保存"].exists)
 
         openSettings(in: app)
 
@@ -41,7 +41,7 @@ final class DiaryFlowUITests: XCTestCase {
         let app = XCUIApplication()
         launchDiary(in: app)
 
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
         XCTAssertTrue(app.staticTexts["请填写内容后再提交"].waitForExistence(timeout: 5))
     }
@@ -50,11 +50,12 @@ final class DiaryFlowUITests: XCTestCase {
         let app = XCUIApplication()
         launchDiary(in: app)
 
-        app.buttons["查看历史条目"].tap()
+        // 「查看历史条目」已并入底部导航的「时间轴」页
+        app.tabBars.buttons["时间轴"].tap()
 
         XCTAssertTrue(app.staticTexts["暂无记录"].waitForExistence(timeout: 10))
-        app.buttons["关闭"].tap()
-        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].exists)
+        app.tabBars.buttons["写日记"].tap()
+        XCTAssertTrue(app.staticTexts["今天的心情在哪儿？"].waitForExistence(timeout: 5))
     }
 
     func testDiaryEntryCanBeSavedAndReadBackFromHistory() throws {
@@ -67,11 +68,11 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText(note)
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
-        let historyButton = app.buttons["查看历史条目"]
-        XCTAssertTrue(historyButton.waitForExistence(timeout: 10))
-        historyButton.tap()
+        let timelineTab = app.tabBars.buttons["时间轴"]
+        XCTAssertTrue(timelineTab.waitForExistence(timeout: 10))
+        timelineTab.tap()
         XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
     }
 
@@ -102,7 +103,7 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText("第一段日记")
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
         XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
 
         editor.tap()
@@ -121,7 +122,7 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText("I felt overwhelmed today!")
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
         XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["谢谢你写下这些感受。"].exists)
@@ -136,7 +137,7 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText("I felt overwhelmed today! I talked with a friend. I feel calmer now?")
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
         XCTAssertTrue(app.staticTexts["谢谢你写下这些感受。"].waitForExistence(timeout: 10))
         let suggestion = app.staticTexts.matching(
@@ -155,11 +156,11 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText(note)
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
         XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["谢谢你写下这些感受。"].exists)
-        app.buttons["查看历史条目"].tap()
+        app.tabBars.buttons["时间轴"].tap()
         XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
     }
 
@@ -173,10 +174,10 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText(note)
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
         XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
-        app.buttons["查看历史条目"].tap()
+        app.tabBars.buttons["时间轴"].tap()
         XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 10))
     }
 
@@ -203,7 +204,7 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText(note)
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
         XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
 
         openSettings(in: app)
@@ -217,7 +218,7 @@ final class DiaryFlowUITests: XCTestCase {
         deletionNotice.buttons["好"].tap()
         app.navigationBars.buttons.firstMatch.tap()
 
-        app.buttons["查看历史条目"].tap()
+        app.tabBars.buttons["时间轴"].tap()
         XCTAssertTrue(app.staticTexts["暂无记录"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts[note].exists)
     }
@@ -232,7 +233,7 @@ final class DiaryFlowUITests: XCTestCase {
         editor.tap()
         editor.typeText(note)
         app.buttons["完成"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
         openSettings(in: app)
         app.buttons["导出日记"].tap()
@@ -284,10 +285,10 @@ final class DiaryFlowUITests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         XCTAssertTrue((editor.value as? String)?.contains(transcript) == true)
         app.buttons["停止录音"].tap()
-        app.buttons["保存并生成共情"].tap()
+        app.buttons["保存"].tap()
 
         XCTAssertTrue(app.staticTexts["已保存并使用本地安慰文案"].waitForExistence(timeout: 10))
-        app.buttons["查看历史条目"].tap()
+        app.tabBars.buttons["时间轴"].tap()
         XCTAssertTrue(app.staticTexts[transcript].waitForExistence(timeout: 10))
     }
 
@@ -306,17 +307,17 @@ final class DiaryFlowUITests: XCTestCase {
         tapAppLockSwitch(appLockSwitch)
         XCTAssertTrue(waitForSwitch(appLockSwitch, value: "1"))
         app.navigationBars.buttons.firstMatch.tap()
-        XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["保存"].waitForExistence(timeout: 5))
 
         XCUIDevice.shared.press(.home)
         app.activate()
         XCTAssertTrue(lockTitle.waitForExistence(timeout: 10))
         XCTAssertTrue(unlockButton.exists)
-        XCTAssertFalse(app.buttons["保存并生成共情"].exists)
+        XCTAssertFalse(app.buttons["保存"].exists)
         XCTAssertFalse(app.textViews.firstMatch.exists)
 
         unlockButton.tap()
-        XCTAssertTrue(app.buttons["保存并生成共情"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["保存"].waitForExistence(timeout: 5))
 
         openSettings(in: app)
         XCTAssertTrue(waitForSwitch(appLockSwitch, value: "1"))
@@ -344,7 +345,7 @@ final class DiaryFlowUITests: XCTestCase {
         unlockButton.tap()
 
         XCTAssertTrue(app.staticTexts["验证未完成，请重试。"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["保存并生成共情"].exists)
+        XCTAssertFalse(app.buttons["保存"].exists)
         XCTAssertFalse(app.textViews["diary-entry-editor"].exists)
     }
 
