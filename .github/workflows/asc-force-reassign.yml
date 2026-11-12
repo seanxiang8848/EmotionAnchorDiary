@@ -1,0 +1,41 @@
+# 强制重新指派测试员（手动触发，外部状态卡在 BETA_APPROVED 时用）
+# 背景：测试员在 Beta 审核前指派，审核通过后 Apple 未触发分发，
+#       外部状态停在 BETA_APPROVED，手机收不到。
+# 做法：移除再重新指派个人测试员，触发立即分发 + 通知邮件。约 1 分钟。
+
+name: ASC Force Reassign (no rebuild)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: '要修复的构建号（留空=最新）'
+        required: false
+        default: ''
+
+jobs:
+  reassign:
+    runs-on: macos-26
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 写入 App Store Connect API Key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -e
+          mkdir -p "$HOME/private_keys"
+          echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+
+      - name: 强制重新指派测试员
+        env:
+          ASC_BUNDLE_ID: com.emotionanchor.diary
+          ASC_BUILD_NUMBER: ${{ github.event.inputs.build_number }}
+        run: |
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          ruby .github/scripts/asc_force_reassign.rb
