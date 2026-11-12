@@ -207,17 +207,30 @@ if build.nil?
   exit 0
 end
 
-code, body = asc(:post, "/v1/betaGroups/#{group['id']}/relationships/builds", token,
-                 { 'data' => [{ 'type' => 'builds', 'id' => build['id'] }] })
+# 构建刚处理完成时，ASC 的关系端点可能短暂 404（索引尚未就绪），
+# 加组请求对 404/5xx 自动重试，避免整条流水线因此挂掉。
+added = false
+6.times do |i|
+  code, body = asc(:post, "/v1/betaGroups/#{group['id']}/relationships/builds", token,
+                   { 'data' => [{ 'type' => 'builds', 'id' => build['id'] }] })
 
-if code >= 200 && code < 300
-  log "构建 #{build.dig('attributes', 'version')} 已加入 #{group_name}。打开手机 TestFlight 即可看到更新。"
-elsif code == 409
-  log "构建已在该测试组中, 无需重复添加。"
-else
-  log "加入测试组失败: HTTP #{code}\n#{body[0, 800]}"
-  exit 1
+  if code >= 200 && code < 300
+    log "构建 #{build.dig('attributes', 'version')} 已加入 #{group_name}。打开手机 TestFlight 即可看到更新。"
+    added = true
+    break
+  elsif code == 409
+    log "构建已在该测试组中, 无需重复添加。"
+    added = true
+    break
+  elsif code == 404 || code == -1 || code >= 500
+    log "加入测试组临时失败: HTTP #{code}（#{i + 1}/6，30 秒后重试）"
+    sleep 30
+  else
+    log "加入测试组失败: HTTP #{code}\n#{body[0, 800]}"
+    exit 1
+  end
 end
+exit 1 unless added
 
 # 内部组只接受 App Store Connect 团队成员；账号里的测试员若是邮箱邀请的外部
 # 测试员，Apple 会拒绝（409 Tester(s) cannot be assigned）。这时把构建直接

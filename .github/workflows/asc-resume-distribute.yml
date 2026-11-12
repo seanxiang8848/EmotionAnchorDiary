@@ -1,0 +1,48 @@
+# 续跑 TestFlight 分发（手动触发，不重新上传构建）
+# 用途：ios-testflight.yml 上传成功但「加入测试组/提交审核」一步
+#       因 ASC API 404 等临时性错误失败时，无需重新打包上传
+#       （重传会消耗新的 build number），跑本工作流补完分发即可。
+# 做的事：等构建 VALID → 加入测试组（404 自动重试）→ 指派测试员 → 提交 Beta 审核。
+
+name: ASC Resume Distribute (no rebuild)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: '要分发的构建号（留空=最新）'
+        required: false
+        default: ''
+      submit_review:
+        description: '是否提交 Beta 审核（默认 true）'
+        required: false
+        default: 'true'
+
+jobs:
+  resume:
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 写入 App Store Connect API Key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          set -e
+          mkdir -p "$HOME/private_keys"
+          echo "$ASC_KEY_P8_BASE64" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+
+      - name: 续跑分发（加组 + 指派 + 提交审核）
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_BUNDLE_ID: com.emotionanchor.diary
+          ASC_BUILD_NUMBER: ${{ github.event.inputs.build_number }}
+          ASC_SUBMIT_REVIEW: ${{ github.event.inputs.submit_review }}
+          ASC_WAIT_MINUTES: '20'
+        run: |
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          ruby .github/scripts/asc_resume_distribute.rb
